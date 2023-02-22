@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload part</title>
+    <script src="https://www.gstatic.com/firebasejs/9.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.13.0/firebase-auth-compat.js"></script>
+  </head>
+  <body>
+    <!-- Here starts the element to be pasted in the upload section of webflwo -->
+    <!-- Remember to change the API_URL and the user id-->
+
+    <!-- styling using Materialize CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <!-- HTML elements -->
+    <div id="upload">
+      <input type="file" id="files" multiple accept="audio/*, video/*" />
+    </div>
+    <div id="upload_status_info">
+      <p id="status_text"></p>
+      <p id="completion_text"></p>
+    </div>
+    <div id="cart_information" style="display: none">
+      <table id="cart_table">
+        <tr>
+          <th>File name</th>
+          <th>File length</th>
+          <th>Price</th>
+        </tr>
+      </table>
+      <div id="total_price"></div>
+      <p>You can upload more files or checkout now.</p>
+      <button class="btn warning" id="clean_cart">Remove all from cart</button>
+      <button class="btn warning" id="checkout_button">Checkout</button>
+    </div>
+
+    <script>
+      // ** This script manages the upload of files and the display of checkouts **
+
+      // Set constants
+
+      //const API_URL = "http://api.platic.io:8000";
+      const API_URL = "https://api.platic.io";
+      const UPLOAD_FILE_URL = API_URL + "/uploadfile/";
+      const GET_PENDING_FILES_URL = API_URL + "/getfilestopay/";
+
+      // * Get users id from firebase *
+      const firebase_config = {
+        apiKey: "AIzaSyAgpnAKfoscIFAYhutFnh_B5YnQtplupP4",
+        authDomain: "platic-firebase.firebaseapp.com",
+        projectId: "platic-firebase",
+        storageBucket: "platic-firebase.appspot.com",
+        messagingSenderId: "19750389430",
+        appId: "1:19750389430:web:3730f997af20458939c817",
+      };
+
+      // Initialize Firebase
+      if (typeof app === "undefined") {
+        const app = firebase.initializeApp(firebase_config);
+      }
+
+      // This is the way to get the user information
+
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          const user_id = user.uid;
+          //const user_id = "undefined";
+
+          // * Functions of upload button *
+          var files = [];
+          document
+            .getElementById("files")
+            .addEventListener("change", async function (e) {
+              files = e.target.files;
+              for (let i = 0; i < files.length; i++) {
+                console.log(files[i]);
+              }
+              //checks if files are selected
+              if (files.length != 0) {
+                var suitable_files = false;
+
+                // Cleans all text from the completion text element,
+                // all rows from the cart table element, and total price
+                // in case we are uploading more files
+                document.getElementById("completion_text").innerHTML = "";
+
+                var table = document.getElementById("cart_table");
+                var rows = table.getElementsByTagName("tr");
+                for (let i = rows.length - 1; i > 0; i--) {
+                  table.deleteRow(i);
+                }
+
+                document.getElementById("total_price").innerHTML = "";
+
+                // Hides the checkout part and shows again the upload status info element
+                document.getElementById("upload_status_info").style.display =
+                  "block";
+                document.getElementById("cart_information").style.display =
+                  "none";
+
+                //Loops through all the selected files
+                for (let i = 0; i < files.length; i++) {
+                  //uploads file
+                  var paragraph = document.getElementById("status_text");
+                  var completion = document.getElementById("completion_text");
+
+                  paragraph.innerHTML =
+                    "Uploading file " + (i + 1) + " of " + files.length;
+                  const url_with_user_id =
+                    UPLOAD_FILE_URL + "?user_id=" + user_id;
+                  response = await send_file(url_with_user_id, files[i]);
+
+                  console.log(response);
+
+                  // Informs about the status of each file in the completion text element
+                  // and treats file duplication
+                  if (response.status == true) {
+                    add_paragraph(
+                      files[i].name +
+                        " uploaded successfully. Length: " +
+                        Math.round(response.file_length) +
+                        " seconds. ",
+                      "completion_text"
+                    );
+                    suitable_files = true;
+                  } else if (response.status == false) {
+                    add_paragraph(
+                      files[i].name +
+                        " not recognised as a media file or duplicated.",
+                      "completion_text"
+                    );
+                  } else if (response.status == "duplicated_in_cart") {
+                    add_paragraph(
+                      files[i].name + " duplicated. No need to upload.",
+                      "completion_text"
+                    );
+                    suitable_files = true;
+                    console.log("File duplicated in cart");
+                  }
+                }
+
+                // If at least one file is suitable, show the checkout part and hides the upload part
+                if (suitable_files) {
+                  document.getElementById("upload_status_info").style.display =
+                    "none";
+                  document.getElementById("cart_information").style.display =
+                    "block";
+                }
+                // Get files to pay and show them in the cart table
+                response = await get_files_to_pay(user_id);
+                for (let i = 0; i < response.files.length; i++) {
+                  add_row(
+                    "cart_table",
+                    response.files[i].file_name,
+                    Math.round(response.files[i].file_length),
+                    response.files[i].file_price
+                  );
+                }
+                // Show total price
+                add_paragraph(
+                  "Total price: $" + response.total_price,
+                  "total_price"
+                );
+              } else {
+                alert("No files chosen");
+              }
+            });
+
+          // * Functions of checkout button *
+          document.getElementById("checkout_button").onclick = function () {
+            location.href = "/private/checkout-page";
+          };
+
+          // * Functions of clean cart button *
+
+          document
+            .getElementById("clean_cart")
+            .addEventListener("click", async function (e) {
+              const response = await fetch(
+                API_URL + "/cleancart/?user_id=" + user_id
+              );
+              console.log(response);
+              window.location.reload();
+            });
+        } else {
+          // send user to sign in page
+          window.location.href = "/sign-in";
+        }
+      }); // End of firebase.auth().onAuthStateChanged
+
+      // * General helper functions *
+
+      // fetch general function
+      function fetchInit(form) {
+        return {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            //"Content-Type": "multipart/form-data",
+          },
+          body: form,
+        };
+      }
+
+      // To send files
+      async function send_file(URL, file_object, user_id) {
+        const form = new FormData();
+        form.append("file", file_object);
+        const response = await fetch(URL, fetchInit(form));
+        return response.json();
+      }
+
+      // To add a row to table
+      function add_row(table_id, file_name, file_length, file_price) {
+        var table = document.getElementById(table_id);
+        var row = table.insertRow(-1);
+        var cell1 = row.insertCell(0);
+        var cell2 = row.insertCell(1);
+        var cell3 = row.insertCell(2);
+        cell1.innerHTML = file_name;
+        cell2.innerHTML = file_length;
+        cell3.innerHTML = file_price;
+      }
+
+      // To add a paragraph to a div
+      function add_paragraph(text, div_id) {
+        var div = document.getElementById(div_id);
+        var p = document.createElement("p");
+        p.innerHTML = text;
+        div.appendChild(p);
+      }
+
+      // Gets pending payment files from the id of a user
+      async function get_files_to_pay(user_id) {
+        url_with_user_id = GET_PENDING_FILES_URL + "?user_id=" + user_id;
+        const response = await fetch(url_with_user_id);
+        return response.json();
+      }
+    </script>
+  </body>
+</html>

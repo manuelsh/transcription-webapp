@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      dockerfile: Dockerfile
+      context: ./transcript-fastapi
+    command: gunicorn main:app --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker
+    ports:
+      - 8000:8000
+    env_file:
+      - ./.env.dev
+    volumes:
+      - ${USERS_FILES_PATH}:${USERS_FILES_PATH}
+      - ${DATABASE_PATH}:${DATABASE_PATH}

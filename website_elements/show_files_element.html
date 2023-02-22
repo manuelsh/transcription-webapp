@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Show files element, to add to webflow</title>
+  </head>
+  <body>
+    <!-- ----------------------------------------------- -->
+    <!--  Part below should be pasted in webflow element -->
+    <!-- ----------------------------------------------- -->
+    <!-- Compiled and minified CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <div id="transcriptions_status" style="display: none">
+      <table id="table" class="highlight">
+        <tr>
+          <th>File</th>
+          <th>Length (minutes)</th>
+          <th>Status</th>
+        </tr>
+      </table>
+    </div>
+    <script>
+      const API_URL = "https://api.platic.io";
+      const FILES_INFO_URL = API_URL + "/get-files";
+
+      // * Get users id from firebase *
+
+      // Initialize Firebase
+      if (typeof app === "undefined") {
+        const firebase_config = {
+          apiKey: "AIzaSyAgpnAKfoscIFAYhutFnh_B5YnQtplupP4",
+          authDomain: "platic-firebase.firebaseapp.com",
+          projectId: "platic-firebase",
+          storageBucket: "platic-firebase.appspot.com",
+          messagingSenderId: "19750389430",
+          appId: "1:19750389430:web:3730f997af20458939c817",
+        };
+        const app = firebase.initializeApp(firebase_config);
+      }
+
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+          const user_id = user.uid;
+          const user_email = user.email;
+
+          // Get files to process
+          get_files_to_pay(user_id).then((files) => {
+            // If there are files to process, show the table
+            if (files.length > 0) {
+              document.getElementById("transcriptions_status").style.display =
+                "block";
+            }
+
+            // Add a row for each file
+            for (var i = 0; i < files.length; i++) {
+              var file = files[i];
+              if file['payment_status'] == 'paid' {
+                var status = file["file_status"];
+              } else {
+                var status = 'Not paid';
+              }
+              var status =
+              var table_cells = [
+                file["file_name"],
+                // round to minutes
+                Math.round(file["file_length"] / 60),
+                status
+              ];
+              add_row("table", table_cells);
+            }
+          });
+        } else {
+          // No user is signed in.
+          // send user to sign in page
+          window.location.href = "/sign-in";
+        }
+      });
+
+      // * HELPER FUNCTIONS *
+
+      // To add a row to table with as many cells as elements in table_cells
+      function add_row(table_id, table_cells) {
+        var table = document.getElementById(table_id);
+        var row = table.insertRow(-1);
+        for (var i = 0; i < table_cells.length; i++) {
+          var cell = row.insertCell(i);
+          cell.innerHTML = table_cells[i];
+        }
+      }
+
+      // Gets files to process from the id of a user
+      async function get_files_to_pay(user_id) {
+        url_with_user_id = FILES_INFO_URL + "?user_id=" + user_id;
+        const response = await fetch(url_with_user_id);
+        return response.json();
+      }
+    </script>
+
+    <!-- ----------------------------------------------- -->
+    <!-- --------------STOP PASTING HERE---------------- -->
+    <!-- ----------------------------------------------- -->
+  </body>
+</html>
