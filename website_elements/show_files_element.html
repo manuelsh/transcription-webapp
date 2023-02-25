@@ -63,17 +63,17 @@
             // Add a row for each file
             for (var i = 0; i < files.length; i++) {
               var file = files[i];
-              if file['payment_status'] == 'paid' {
+              if (file["payment_status"] == "paid") {
                 var status = file["file_status"];
               } else {
-                var status = 'Not paid';
+                var status = "Not paid";
               }
-              var status =
+
               var table_cells = [
                 file["file_name"],
                 // round to minutes
                 Math.round(file["file_length"] / 60),
-                status
+                status,
               ];
               add_row("table", table_cells);
             }
