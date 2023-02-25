@@ -1,11 +1,24 @@
-# Platic server
+# Platic server, API and frontend elements
 
 This serves the platic api. Stack is the following:
 
-- API: FastApi
-- Serving: GUnicorn and Nginx
-- SSL certificate: Certbot
-- Containers with Docker Compose
+1. API: FastApi
+2. Serving: GUnicorn and Nginx
+3. SSL certificate: Certbot
+4. Containers with Docker Compose
+5. Database: SQLite
+6. Frontend: HTML, CSS and Javascript
+7. Payment: Stripe
+
+## Overall mechanics
+
+This repo contains the elements for the frontend and backend for the Platic API. The frontend is a few elements made in html, CSS and javascript, that need to be added to the website, and the backend is the API that is deployed in a server, with GUnicorn and Nginx.
+
+The mechanics is the following:
+
+1. With the upload element, the user uploads the files to be transcribed and clicks on the button to checkout. The files are stored in the server. This uses the element 'file_upload_element.html' and the API endpoint '/uploadfile' and '/getfilestopay'.
+2. The checkout element opens the checkout page, which uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element 'checkout_payment_element.html' and the API endpoint '/getfilestopay' and 'createpaymentintent'.
+3. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element 'show_files_element.html' and the API endpoint '/get-files'.
 
 ## Running
 
@@ -25,6 +38,12 @@ Once the server is running, you can test it with for example by:
 
 or browsing it there, which should return the FastAPI swagger documentation.
 
+## Stopping
+
+To stop the server, run:
+
+`sudo docker-compose -f docker-compose.prod.yml down`
+
 ## Logs
 
 To see the logs of the containers, run:
@@ -38,6 +57,21 @@ and for development environment, run:
 ## Configuration (also to use in a new project)
 
 Currently, it is set up to run with the host `api.platic.io`, but one can set it up to other URL by mainly adjusting the nginx configuration and the certbot.
+
+### Environment variables
+
+The environment variables are set in the file `.env.prod` or in the `.env.dev` files. The variables are:
+
+- `USERS_FILES_PATH`: path to the folder where the user files are stored.
+- `DATABASE_PATH`: path to the folder where the database is stored.
+- `DATABASE_FILE_NAME`: name of the database file.
+- `PRICE_PER_MINUTE`: price per minute of transcription.
+- `STRIPE_API_KEY`: Stripe API key.
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret.
+
+### Server
+
+Note that the server would require at least the port 443 to be open (and possibly the port 8000 and 80 too).
 
 ### Database and users info
 
@@ -85,8 +119,66 @@ It's binded to the port 8000, which is the internal port of the FastAPI API. It 
 
 Note that it has a timeout, which can be adjusted if needed.
 
-## Stopping
+## Description of frontend and API
 
-To stop the server, run:
+### Frontend: Website elements
 
-`sudo docker-compose -f docker-compose.prod.yml down`
+The frontend is based on a few frontend elements that need to be added to the website.
+
+In the folder 'website elements' you will find the html code that needs to be added to the website to make it work with the Platic API. Current website is done in Webflow, but should work with any other website. The elements are inside the html files, you will find where to start copy and pasting the code. In concrete you will find:
+
+#### File upload element
+
+It's in the file 'file_upload_element.html'. It's a button that opens a file explorer to select one or more files. It has a function that sends the file to the Platic API to be processed and stored for doing the transcription once payment is done.
+
+### Checkout payment element
+
+It's in the file 'checkout_payment_element.html'. Using Platic API it gets the files that needs to be paid and the total price. It has a function that opens the checkout payment page which uses Stripe. Once the payment is done, it will go to the page that shows the files that are ready to be transcribed.
+
+### Show files element
+
+It shows in a table the files that are ready to be transcribed or the ones transcribed.
+
+## Platic API
+
+The platic API is in the folder 'transcript-fastapi'. It's a FastAPI application that has the following endpoints:
+
+### Upload file (POST)
+
+'/uploadfile/'
+
+It receives a file and stores it in the server. It returns info on the status of the uploading and processing.
+
+### Get files to pay (GET)
+
+'/get_files_to_pay/{user_id}'
+
+It receives the user id and returns the files that need to be paid and the total price.
+
+### Clean cart (GET)
+
+'/cleancart/{user_id}'
+
+It receives the user id and removes all files from the cart.
+
+### Create payment intent (POST)
+
+'/create-payment-intent/'
+
+It receives the user id, user email and creates a payment intent in Stripe based on the files pending to be transcribed. It returns the client secret for Stripe.
+
+### Get files (GET)
+
+'/get-files/{user_id}'
+
+It receives the user id and returns the files that are ready to be transcribed or the ones that have been transcribed.
+
+### Webhook (POST)
+
+'/webhook'
+
+It receives the webhook from Stripe that confirms that some files have been pais and updates the status of the files in the database to 'paid'.
+
+## Stripe
+
+Stripe is used to do the payment.
