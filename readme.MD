@@ -9,6 +9,7 @@ This serves the platic api. Stack is the following:
 5. Database: SQLite
 6. Frontend: HTML, CSS and Javascript
 7. Payment: Stripe
+8. AWS S3 and ec2
 
 ## Overall mechanics
 
@@ -20,7 +21,7 @@ The mechanics is the following:
 2. The checkout element opens the checkout page, which uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element 'checkout_payment_element.html' and the API endpoint '/getfilestopay' and 'createpaymentintent'.
 3. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element 'show_files_element.html' and the API endpoint '/get-files'.
 
-## Running
+## Running the server
 
 To run the production server, inside the folder run:
 
@@ -54,6 +55,16 @@ and for development environment, run:
 
 `sudo docker-compose --env-file .env.dev -f docker-compose.dev.yml logs -f`
 
+## Setting up AWS
+
+### S3
+
+S3 bucket is set up to store the files that are uploaded by the users. The bucket is called `platic-files` and it is set up so that it can be accessed only from the server.
+
+### Policies
+
+There is apolicy that needs to be added to the ec2 machine so that it can access the S3 bucket. The policy is called `platic-files-bucket-access` and it is in the file `aws/policies/platic-files-bucket-access.json`.
+
 ## Configuration (also to use in a new project)
 
 Currently, it is set up to run with the host `api.platic.io`, but one can set it up to other URL by mainly adjusting the nginx configuration and the certbot.
@@ -68,6 +79,7 @@ The environment variables are set in the file `.env.prod` or in the `.env.dev` f
 - `PRICE_PER_MINUTE`: price per minute of transcription.
 - `STRIPE_API_KEY`: Stripe API key.
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret.
+- `S3_BUCKET`: S3 bucket name.
 
 ### Server
 
@@ -125,15 +137,15 @@ Note that it has a timeout, which can be adjusted if needed.
 
 The frontend is based on a few frontend elements that need to be added to the website.
 
-In the folder 'website elements' you will find the html code that needs to be added to the website to make it work with the Platic API. Current website is done in Webflow, but should work with any other website. The elements are inside the html files, you will find where to start copy and pasting the code. In concrete you will find:
+In the folder `website elements` you will find the html code that needs to be added to the website to make it work with the Platic API. Current website is done in Webflow, but should work with any other website. The elements are inside the html files, you will find where to start copy and pasting the code. In concrete you will find:
 
 #### File upload element
 
-It's in the file 'file_upload_element.html'. It's a button that opens a file explorer to select one or more files. It has a function that sends the file to the Platic API to be processed and stored for doing the transcription once payment is done.
+It's in the file `file_upload_element.html`. It's a button that opens a file explorer to select one or more files. It has a function that sends the file to the Platic API to be processed and stored for doing the transcription once payment is done.
 
 ### Checkout payment element
 
-It's in the file 'checkout_payment_element.html'. Using Platic API it gets the files that needs to be paid and the total price. It has a function that opens the checkout payment page which uses Stripe. Once the payment is done, it will go to the page that shows the files that are ready to be transcribed.
+It's in the file `checkout_payment_element.html`. Using Platic API it gets the files that needs to be paid and the total price. It has a function that opens the checkout payment page which uses Stripe. Once the payment is done, it will go to the page that shows the files that are ready to be transcribed.
 
 ### Show files element
 
@@ -141,41 +153,41 @@ It shows in a table the files that are ready to be transcribed or the ones trans
 
 ## Platic API
 
-The platic API is in the folder 'transcript-fastapi'. It's a FastAPI application that has the following endpoints:
+The platic API is in the folder `transcript-fastapi`. It's a FastAPI application that has the following endpoints:
 
 ### Upload file (POST)
 
-'/uploadfile/'
+`/uploadfile/`
 
 It receives a file and stores it in the server. It returns info on the status of the uploading and processing.
 
 ### Get files to pay (GET)
 
-'/get_files_to_pay/{user_id}'
+`/get_files_to_pay/{user_id}`
 
 It receives the user id and returns the files that need to be paid and the total price.
 
 ### Clean cart (GET)
 
-'/cleancart/{user_id}'
+`/cleancart/{user_id}`
 
 It receives the user id and removes all files from the cart.
 
 ### Create payment intent (POST)
 
-'/create-payment-intent/'
+`/create-payment-intent/`
 
 It receives the user id, user email and creates a payment intent in Stripe based on the files pending to be transcribed. It returns the client secret for Stripe.
 
 ### Get files (GET)
 
-'/get-files/{user_id}'
+`/get-files/{user_id}`
 
 It receives the user id and returns the files that are ready to be transcribed or the ones that have been transcribed.
 
 ### Webhook (POST)
 
-'/webhook'
+`/webhook`
 
 It receives the webhook from Stripe that confirms that some files have been pais and updates the status of the files in the database to 'paid'.
 
