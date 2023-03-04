@@ -2,10 +2,10 @@ from io import BytesIO
 import os
 import pydub
 import base64
-import banana_dev as banana
 import tempfile
 import uuid
 import sqlite3
+import boto3
 
 # Database file model
 # Latest update: 2023-02-14
@@ -19,10 +19,23 @@ import sqlite3
 # - payment_id: the id of the payment, coming from stripe (client_secret)
 
 # Main variables
-USERS_FILES_PATH=os.environ["USERS_FILES_PATH"]+"/"
-DATABASE_PATH=os.environ["DATABASE_PATH"]+"/"
-DATABASE_FILE_NAME=os.environ["DATABASE_FILE_NAME"]
-PRICE_PER_MINUTE=os.environ["PRICE_PER_MINUTE"]
+USERS_FILES_PATH = os.environ["USERS_FILES_PATH"]+"/"
+DATABASE_PATH = os.environ["DATABASE_PATH"]+"/"
+DATABASE_FILE_NAME = os.environ["DATABASE_FILE_NAME"]
+PRICE_PER_MINUTE = os.environ["PRICE_PER_MINUTE"]
+S3_BUCKET = os.environ["S3_BUCKET"]
+
+# Make general SQL queries
+def execute_sql(sql, fetch=False):
+    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
+    cur = conn.cursor()
+    cur.execute(sql)
+    if fetch:
+        result = cur.fetchall()
+    conn.commit()
+    conn.close()
+    if fetch:
+        return result
 
 # Check if it is a sound media file
 def is_media_file(file_obj):
@@ -47,16 +60,17 @@ def converts_file(file):
 # takes an "audiosegment" object, stores file in folder with unique name, and returns new file name
 def stores_file(audio_file, user_id):
     file_name = user_id + "_" + str(uuid.uuid4()) + ".flac"
+
+    # Stores file in a file, upload to S3, and removes the file
     audio_file.export(USERS_FILES_PATH + file_name, format="flac")
+    s3 = boto3.resource('s3')
+    s3.Bucket(S3_BUCKET).upload_file(USERS_FILES_PATH + file_name, file_name)
+    os.remove(USERS_FILES_PATH + file_name)
     return file_name
     
 def records_file_in_db(file_id, file_name, user_id, file_length):
     # records file name, user_id and status=pending in database
-    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-    cur = conn.cursor()
-    cur.execute("INSERT INTO files VALUES (?,?,?,?,?,?,?)", (user_id, file_id, file_name, file_length, "pending", "pending","pending"))    
-    conn.commit()
-    conn.close()
+    execute_sql("INSERT INTO files VALUES ('{}','{}','{}','{}','{}','{}','{}')".format(user_id, file_id, file_name, file_length, "pending", "pending","pending"))
 
 def checks_file_duplicated(file_name, user_id, file_length):
     conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
@@ -98,11 +112,7 @@ def file_processor(file,user_id):
 def get_pending_payment_files(user_id):
     
     # Gets all pending payment files from a user id
-    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-    cur = conn.cursor()
-    cur.execute("SELECT file_name, file_length, file_name_stored FROM files WHERE user_id = ? AND payment_status = 'pending'", (user_id,))
-    files = cur.fetchall()
-    conn.close()
+    files = execute_sql("SELECT file_name, file_length, file_name_stored FROM files WHERE user_id = '{}' AND payment_status = 'pending'".format(user_id), fetch=True)
     
     # Puts data in a dictionary, file by file
     files = [{"file_name": file[0], 
@@ -131,20 +141,11 @@ def add_payment_id_to_files(user_id, files, payment_id):
 
 # Changes a set of files with given payment_id to "paid" status
 def change_files_status_to_paid(payment_id):
-    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-    cur = conn.cursor()
-    cur.execute("UPDATE files SET payment_status = 'paid' WHERE payment_id = ?", (payment_id,))
-    conn.commit()
-    conn.close()
+    execute_sql("UPDATE files SET payment_status = 'paid' WHERE payment_id = '{}'".format(payment_id))
 
 # Removes payment id to a set of files, and change it to some text
 def remove_payment_id(payment_id, text):
-    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-    cur = conn.cursor()
-    cur.execute("UPDATE files SET payment_id = ? WHERE payment_id = ?", (text, payment_id))
-    conn.commit()
-    conn.close()
-
+    execute_sql("UPDATE files SET payment_id = '{}' WHERE payment_id = '{}'".format(text, payment_id))
 
 # Removes all files from user cart
 # It will change the status of the files to "cancelled" and the payment status to "cancelled"
@@ -152,23 +153,15 @@ def remove_payment_id(payment_id, text):
 def remove_all_files_from_cart(user_id):
     try:
         # Gets all pending payment files from a user id
-        conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-        cur = conn.cursor()
-        cur.execute("SELECT file_name_stored FROM files WHERE user_id = ? AND payment_status = 'pending'", (user_id,))
-        files = cur.fetchall()
-        conn.close()
+        files = execute_sql("SELECT file_name_stored FROM files WHERE user_id = {} AND payment_status = 'pending'".format(user_id), fetch=True)
         
         # Removes files from server
         for file in files:
             os.remove(USERS_FILES_PATH + file[0])
         
         # Changes status of files to "cancelled" and payment status to "cancelled"
-        conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-        cur = conn.cursor()
-        cur.execute("UPDATE files SET payment_status = 'cancelled', file_status = 'cancelled' WHERE user_id = ? AND payment_status = 'pending'", (user_id,))
-        conn.commit()
-        conn.close()
-        
+        execute_sql("UPDATE files SET payment_status = 'cancelled', file_status = 'cancelled' WHERE user_id = {} AND payment_status = 'pending'".format(user_id))
+       
         return {'status': True}
     
     # Returns false and error message if something goes wrong
@@ -180,12 +173,7 @@ def remove_all_files_from_cart(user_id):
 # Returns a list of dictionaries with the file name, the file length, 
 # the file status and the payment status
 def get_files_info(user_id):
-    conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
-    cur = conn.cursor()
-    cur.execute("SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = ?", (user_id,))
-    files = cur.fetchall()
-    conn.close()
-    
+    files = execute_sql( "SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = {}".format(user_id), fetch=True)
     files = [{"file_name": file[0], 
               "file_length": file[1], 
               "file_status": file[2], 
@@ -193,17 +181,15 @@ def get_files_info(user_id):
     
     return files
 
+def get_file_info(user_id, file_id):
+    file = execute_sql( "SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = {} AND file_id = {}".format(user_id, file_id), fetch=True)
+    file = {"file_name": file[0][0], 
+            "file_length": file[0][1], 
+            "file_status": file[0][2], 
+            "payment_status": file[0][3]}
+    
+    return file
 
-
-
-#### BELOW: DEPRECATED ####
-# Expects an mp3 file named test.mp3 in directory
-def async transcribe(file):
-    #mp3bytes = BytesIO(file)
-    #mp3 = base64.b64encode(mp3bytes.getvalue()).decode("ISO-8859-1")
-    mp3 = base64.b64encode(file).decode("ISO-8859-1")
-    model_payload = {"mp3BytesString": mp3}
-    out = banana.run(os.environ["BANANA_API_KEY"],
-                    os.environ["BANANA_MODEL_KEY"], 
-                    model_payload)
-    return out['modelOutputs'][0]
+# Update file status
+def update_file_status(user_id, file_id, new_status):
+    execute_sql("UPDATE files SET file_status = '{}' WHERE user_id = {} AND file_id = {}".format(new_status, user_id, file_id))

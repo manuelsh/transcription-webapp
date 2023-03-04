@@ -111,3 +111,11 @@ async def webhook(request: Request):
         remove_payment_id(payment_intent['client_secret'], payment_intent['status'] )
 
     return {'status':'success'}
+
+# Transcription has finished, send email to user and update status in database
+@app.get("/transcription-finished")
+async def transcription_finished(user_id: str, file_id: str):
+    info = get_file_info(user_id, file_id)
+    update_file_status(user_id, file_id, 'processed')
+    # send_email(info['user_email'], info['file_name'], info['transcription'])
+    return {'success':'success'}

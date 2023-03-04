@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VisualEditor0",
+      "Effect": "Allow",
+      "Action": [
+        "batch:DeregisterJobDefinition",
+        "batch:TerminateJob",
+        "batch:CancelJob",
+        "batch:SubmitJob",
+        "batch:RegisterJobDefinition"
+      ],
+      "Resource": "arn:aws:batch:eu-west-1:807010294369:job-queue/platic-job-queue",
+      "Condition": {
+        "IpAddress": {
+          "aws:SourceIp": "99.81.78.59"
+        }
+      }
+    }
+  ]
+}

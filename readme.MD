@@ -63,7 +63,15 @@ S3 bucket is set up to store the files that are uploaded by the users. The bucke
 
 ### Policies
 
-There is apolicy that needs to be added to the ec2 machine so that it can access the S3 bucket. The policy is called `platic-files-bucket-access` and it is in the file `aws/policies/platic-files-bucket-access.json`.
+We use the policy `platic-files-bucket-access` to allow the server to access the S3 bucket (needs to be associated to the IAM role of the server, see next point).
+
+The policy is called `platic-files-bucket-access` and it is in the file `aws/policies/platic-files-bucket-access.json`.
+
+### IAM Role
+
+There is an IAM role that needs to be added to the ec2 machine so that it can access the S3 bucket. The role is called `ec2-access-s3-platic-files` and it is in the file `aws/roles/ec2-access-s3-platic-files.json`.
+
+One needs to create that role, and then add the policy `platic-files-bucket-access` to it via the aws conssole.
 
 ## Configuration (also to use in a new project)
 

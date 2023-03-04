@@ -5,8 +5,10 @@ gunicorn==20.1.0
 fastapi==0.89.1
 uvicorn==0.20.0
 python-multipart==0.0.5
-banana_dev==4.0.1
 pydub==0.25.1
+
+# AWS services
+boto3==1.26.84
 
 # Payment
 stripe==5.0.0
