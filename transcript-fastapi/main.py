@@ -127,7 +127,7 @@ async def webhook(request: Request):
 
 # Transcription has finished, send email to user and update status in database
 
-def FileInfo(BaseModel):
+class FileInfo(BaseModel):
     file_name_stored: str
     new_file_status: str
 

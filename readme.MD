@@ -202,3 +202,5 @@ It receives the webhook from Stripe that confirms that some files have been pais
 ## Stripe
 
 Stripe is used to do the payment.
+
+

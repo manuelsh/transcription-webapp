@@ -1,13 +1,12 @@
-from io import BytesIO
 import os
 import pydub
-import base64
 import tempfile
 import uuid
 import sqlite3
 import boto3
 import requests
 import json
+import re
 
 # Database file model
 # Latest update: 2023-02-14
@@ -246,17 +245,23 @@ def start_transcriptions(client_secret):
         file_name_stored = file[0]
         update_file_status(file_name_stored, "processing")
         job_response = transcribe_file(file_name_stored)
-        if job_response['HTTPStatusCode'] != 200:
+        print('Job sent. File: '+file_name_stored, flush=True)
+        print(job_response, flush=True)
+        if job_response['ResponseMetadata']['HTTPStatusCode'] != 200:
             update_file_status(file_name_stored, "error")
-            print("Error in job response:")
-            print(job_response)
-
+            print("Error in job response!!", flush=True)
 
 # Transcribes a file and returns the job response
+
+
 def transcribe_file(file_name_stored):
     # Get the credentials from the instance metadata service
     r = requests.get(AWS_CREDENTIALS_ADDRESS)
     credentials = json.loads(r.text)
+
+    # Get file length
+    file_length = execute_sql(
+        "SELECT file_length FROM files WHERE file_name_stored = '{}'".format(file_name_stored), fetch=True)[0][0]
 
     # Gets AWS Batch client
     batch = boto3.client('batch',
@@ -264,8 +269,13 @@ def transcribe_file(file_name_stored):
                          aws_access_key_id=credentials['AccessKeyId'],
                          aws_secret_access_key=credentials['SecretAccessKey'], aws_session_token=credentials['Token'])
 
+    # Remove characters not allowed in job name from file name
+    file_name_clean = re.sub('[^A-Za-z0-9]+', '', file_name_stored)
+
+    # Submits the job to AWS Batch
     job_response = batch.submit_job(
-        jobName='platic-whisper',
+        jobName=(file_name_clean+'__length_' +
+                 str(round(file_length))+'_seconds')[0:128],
         jobQueue=JOB_QUEUE,
         jobDefinition=JOB_DEFINITION,
         containerOverrides={
