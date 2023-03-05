@@ -2,7 +2,7 @@
 
 The following creates a container that takes an audio file from S3, runs whisper model to transcribe it, and returns the transcription to S3.
 
-It's intended to be used in AWS Batch service.
+It's intended to be used in AWS Batch service, as the container of a job.
 
 ## Pushing it to docker hub
 

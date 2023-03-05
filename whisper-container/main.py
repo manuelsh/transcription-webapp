@@ -41,7 +41,7 @@ def stores_dict_in_json_file(dictionary, file_name):
 
 
 if __name__ == "__main__":
-    print('Starting transcribing...')
+    print('Starting transcribing')
     # Gets S3 client
     s3 = get_s3_client(S3_CREDENTIALS_PATH)
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     status_file_address = STATUS_FILE_ADDRESS
     data = {'file_name_stored': file_name,
             'new_file_status': 'processed'}
-    result = requests.post(status_file_address, data=data)
+    result = requests.post(status_file_address, json=data)
     print('Sent POST request to status file address: {}'.format(
-        status_file_address))
+        status_file_address), flush=True)
     print('Result: {}'.format(result.text), flush=True)

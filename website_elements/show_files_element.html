@@ -53,7 +53,7 @@
           const user_email = user.email;
 
           // Get files to process
-          get_files_to_pay(user_id).then((files) => {
+          get_files_info(user_id).then((files) => {
             // If there are files to process, show the table
             if (files.length > 0) {
               document.getElementById("transcriptions_status").style.display =
@@ -64,7 +64,7 @@
             for (var i = 0; i < files.length; i++) {
               var file = files[i];
               if (file["payment_status"] == "paid") {
-                var status = file["file_status"];
+                var status = capitalise_first_letter(file["file_status"]);
               } else {
                 var status = "Not paid";
               }
@@ -75,7 +75,16 @@
                 Math.round(file["file_length"] / 60),
                 status,
               ];
-              add_row("table", table_cells);
+
+              if (status === "Processed") {
+                add_row_with_file_info(
+                  "table",
+                  table_cells,
+                  file["file_name_stored"]
+                );
+              } else {
+                add_row("table", table_cells);
+              }
             }
           });
         } else {
@@ -96,12 +105,32 @@
           cell.innerHTML = table_cells[i];
         }
       }
+      // To add a row to table with as many cells as elements in table_cells
+      // and some rows when clicked will open a new window with the file info
+      function add_row_with_file_info(table_id, table_cells, file_id = false) {
+        var table = document.getElementById(table_id);
+        var row = table.insertRow(-1);
+        for (var i = 0; i < table_cells.length; i++) {
+          var cell = row.insertCell(i);
+          cell.innerHTML = table_cells[i];
+        }
+        if (file_id) {
+          row.onclick = function () {
+            window.open("/private/transcription?file_id=" + file_id);
+          };
+        }
+      }
 
       // Gets files to process from the id of a user
-      async function get_files_to_pay(user_id) {
+      async function get_files_info(user_id) {
         url_with_user_id = FILES_INFO_URL + "?user_id=" + user_id;
         const response = await fetch(url_with_user_id);
         return response.json();
+      }
+
+      // Takes a string and capitalises the first letter
+      function capitalise_first_letter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
       }
     </script>
 

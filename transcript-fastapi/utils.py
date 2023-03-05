@@ -188,14 +188,14 @@ def remove_all_files_from_cart(user_id):
     try:
         # Gets all pending payment files from a user id
         files = execute_sql(
-            "SELECT file_name_stored FROM files WHERE user_id = {} AND payment_status = 'pending'".format(user_id), fetch=True)
+            "SELECT file_name_stored FROM files WHERE user_id = '{}' AND payment_status = 'pending'".format(user_id), fetch=True)
 
         # Removes files from server
         for file in files:
             os.remove(USERS_FILES_PATH + file[0])
 
         # Changes status of files to "cancelled" and payment status to "cancelled"
-        execute_sql("UPDATE files SET payment_status = 'cancelled', file_status = 'cancelled' WHERE user_id = {} AND payment_status = 'pending'".format(user_id))
+        execute_sql("UPDATE files SET payment_status = 'cancelled', file_status = 'cancelled' WHERE user_id = '{}' AND payment_status = 'pending'".format(user_id))
 
         return {'status': True}
 
@@ -209,17 +209,18 @@ def remove_all_files_from_cart(user_id):
 # the file status and the payment status
 def get_files_info(user_id):
     files = execute_sql(
-        "SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = {}".format(user_id), fetch=True)
+        "SELECT file_name, file_name_stored, file_length, file_status, payment_status FROM files WHERE user_id = '{}'".format(user_id), fetch=True)
     files = [{"file_name": file[0],
-              "file_length": file[1],
-              "file_status": file[2],
-              "payment_status": file[3]} for file in files]
+              "file_name_stored": file[1],
+              "file_length": file[2],
+              "file_status": file[3],
+              "payment_status": file[4]} for file in files]
 
     return files
 
 
 def get_file_info(user_id, file_name_stored):
-    file = execute_sql("SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = {} AND file_name_stored = {}".format(
+    file = execute_sql("SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = '{}' AND file_name_stored = {}".format(
         user_id, file_name_stored), fetch=True)
     file = {"file_name": file[0][0],
             "file_length": file[0][1],
