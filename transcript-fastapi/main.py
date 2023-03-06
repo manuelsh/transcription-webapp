@@ -22,17 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Upload file api
-
-
 @app.post("/uploadfile/")
 async def receive_file(file: UploadFile, user_id: str):
     info = file_processor(file, user_id)
     return info
 
+
 # Get information about files to be transcribed, their length, cost and total cost
-
-
 @app.get("/getfilestopay/")
 async def get_files_to_pay(user_id: str):
     info = get_pending_payment_files(user_id)
@@ -126,7 +124,6 @@ async def webhook(request: Request):
 
 
 # Transcription has finished, send email to user and update status in database
-
 class FileInfo(BaseModel):
     file_name_stored: str
     new_file_status: str
@@ -140,3 +137,10 @@ async def transcription_finished(file_info: FileInfo):
         return {'status': 'success'}
     else:
         return {'status': 'error, new_file_status must be error or processed, not ' + file_info.new_file_status}
+
+
+# Return transcription from a file name stored in the database
+@app.get("/get-transcription")
+async def get_transcription(file_name_stored: str):
+    transcription = get_transcription_text(file_name_stored)
+    return transcription

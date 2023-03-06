@@ -48,10 +48,9 @@ def execute_sql(sql, fetch=False):
     if fetch:
         return result
 
+
 # Check if it is a sound media file
-
-
-def is_media_file(file_obj):
+def is_media_file(file_obj) -> tuple:
     try:
         temp_file = tempfile.NamedTemporaryFile()
         temp_file.write(file_obj.read())
@@ -65,18 +64,16 @@ def is_media_file(file_obj):
     except:
         return (False, None, None)
 
+
 # converts file to flac, 16000Hz, mono
-
-
 def converts_file(file):
     audio_file = pydub.AudioSegment.from_file(
         file.name).set_frame_rate(16000).set_channels(1)
     return audio_file
 
+
 # takes an "audiosegment" object, stores file in folder with unique name, and returns new file name
-
-
-def stores_file(audio_file, user_id):
+def stores_file(audio_file, user_id) -> str:
     file_name = user_id + "_" + str(uuid.uuid4()) + ".flac"
 
     # Stores file in a file, upload to S3, and removes the file
@@ -87,13 +84,13 @@ def stores_file(audio_file, user_id):
     return file_name
 
 
-def records_file_in_db(file_name_stored, file_name, user_id, file_length):
+def records_file_in_db(file_name_stored, file_name, user_id, file_length) -> None:
     # records file name, user_id and status=pending in database
     execute_sql("INSERT INTO files VALUES ('{}','{}','{}','{}','{}','{}','{}')".format(
         user_id, file_name_stored, file_name, file_length, "pending", "pending", "pending"))
 
 
-def checks_file_duplicated(file_name, user_id, file_length):
+def checks_file_duplicated(file_name, user_id, file_length) -> tuple:
     conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
     cur = conn.cursor()
     cur.execute("SELECT file_name FROM files WHERE user_id = ? AND file_name = ? AND file_length = ? AND payment_status = 'pending'",
@@ -105,10 +102,9 @@ def checks_file_duplicated(file_name, user_id, file_length):
     else:
         return (False, None)
 
+
 # Processes uploaded file: checks it, converts it, and stores the information in the database
-
-
-def file_processor(file, user_id):
+def file_processor(file, user_id) -> dict:
     status, temp_file, file_info = is_media_file(file.file)
 
     if status:
@@ -133,7 +129,7 @@ def file_processor(file, user_id):
 
 
 # Returns all pending payment files from a user id, their length, the total length and the total cost
-def get_pending_payment_files(user_id):
+def get_pending_payment_files(user_id) -> dict:
 
     # Gets all pending payment files from a user id
     files = execute_sql(
@@ -154,10 +150,9 @@ def get_pending_payment_files(user_id):
             "total_price": total_price,
             "total_files": total_files}
 
+
 # Adds the client_secret to a set of files for a payment to be confirmed
-
-
-def add_payment_id_to_files(user_id, files, payment_id):
+def add_payment_id_to_files(user_id, files, payment_id) -> None:
     conn = sqlite3.connect(DATABASE_PATH + DATABASE_FILE_NAME)
     cur = conn.cursor()
     for file in files:
@@ -168,23 +163,21 @@ def add_payment_id_to_files(user_id, files, payment_id):
 
 
 # Changes a set of files with given payment_id to "paid" status
-def change_files_status_to_paid(payment_id):
+def change_files_status_to_paid(payment_id) -> None:
     execute_sql(
         "UPDATE files SET payment_status = 'paid' WHERE payment_id = '{}'".format(payment_id))
 
+
 # Removes payment id to a set of files, and change it to some text
-
-
-def remove_payment_id(payment_id, text):
+def remove_payment_id(payment_id, text) -> None:
     execute_sql("UPDATE files SET payment_id = '{}' WHERE payment_id = '{}'".format(
         text, payment_id))
+
 
 # Removes all files from user cart
 # It will change the status of the files to "cancelled" and the payment status to "cancelled"
 # Will also remove the files from the server
-
-
-def remove_all_files_from_cart(user_id):
+def remove_all_files_from_cart(user_id) -> dict:
     try:
         # Gets all pending payment files from a user id
         files = execute_sql(
@@ -207,7 +200,7 @@ def remove_all_files_from_cart(user_id):
 # Get the files of a user to show the status and be able to donwload them
 # Returns a list of dictionaries with the file name, the file length,
 # the file status and the payment status
-def get_files_info(user_id):
+def get_files_info(user_id) -> list:
     files = execute_sql(
         "SELECT file_name, file_name_stored, file_length, file_status, payment_status FROM files WHERE user_id = '{}'".format(user_id), fetch=True)
     files = [{"file_name": file[0],
@@ -219,7 +212,7 @@ def get_files_info(user_id):
     return files
 
 
-def get_file_info(user_id, file_name_stored):
+def get_file_info(user_id, file_name_stored) -> dict:
     file = execute_sql("SELECT file_name, file_length, file_status, payment_status FROM files WHERE user_id = '{}' AND file_name_stored = {}".format(
         user_id, file_name_stored), fetch=True)
     file = {"file_name": file[0][0],
@@ -229,17 +222,15 @@ def get_file_info(user_id, file_name_stored):
 
     return file
 
+
 # Update file status
-
-
-def update_file_status(file_name_stored, new_status):
+def update_file_status(file_name_stored, new_status) -> None:
     execute_sql("UPDATE files SET file_status = '{}' WHERE file_name_stored = '{}'".format(
         new_status, file_name_stored))
 
+
 # Starts the transcription process to the files with the given payment_id, payment_status="paid" and file_status="pending"
-
-
-def start_transcriptions(client_secret):
+def start_transcriptions(client_secret) -> None:
     files = execute_sql("SELECT file_name_stored FROM files WHERE payment_id = '{}' AND payment_status = 'paid' AND file_status = 'pending'".format(
         client_secret), fetch=True)
     for file in files:
@@ -252,10 +243,9 @@ def start_transcriptions(client_secret):
             update_file_status(file_name_stored, "error")
             print("Error in job response!!", flush=True)
 
+
 # Transcribes a file and returns the job response
-
-
-def transcribe_file(file_name_stored):
+def transcribe_file(file_name_stored) -> dict:
     # Get the credentials from the instance metadata service
     r = requests.get(AWS_CREDENTIALS_ADDRESS)
     credentials = json.loads(r.text)
@@ -294,7 +284,44 @@ def transcribe_file(file_name_stored):
                     'value': 'transcribe'
                 },
             ],
+            'resourceRequirements': [
+                {
+                    'value': '1',
+                    'type': 'GPU',
+                }
+            ]
         }
     )
 
     return job_response
+
+
+# Get file from S3
+def get_file_from_s3(file_name: str) -> None:
+    # Get the credentials from the instance metadata service
+    r = requests.get(AWS_CREDENTIALS_ADDRESS)
+    credentials = json.loads(r.text)
+
+    # Gets S3 client
+    s3 = boto3.client('s3',
+                      region_name=AWS_REGION,
+                      aws_access_key_id=credentials['AccessKeyId'],
+                      aws_secret_access_key=credentials['SecretAccessKey'], aws_session_token=credentials['Token'])
+
+    # Gets the file from S3
+    s3.download_file(S3_BUCKET, file_name, USERS_FILES_PATH+file_name)
+
+
+# Return transcription from file name stored
+def get_transcription_text(file_name_stored: str) -> dict:
+
+    # Downloads the json file from S3
+    file_name_with_transcription = file_name_stored+'_result.json'
+    get_file_from_s3(file_name_with_transcription)
+
+    # Loads the json file into a dict
+    with open(USERS_FILES_PATH+file_name_with_transcription, 'r') as file:
+        transcription_json = json.load(file)
+
+    # Returns the transcription text
+    return {'transcription': transcription_json['text']}

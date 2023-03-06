@@ -77,10 +77,11 @@
               ];
 
               if (status === "Processed") {
-                add_row_with_file_info(
+                add_row(
                   "table",
                   table_cells,
-                  file["file_name_stored"]
+                  file["file_name_stored"],
+                  file["file_name"]
                 );
               } else {
                 add_row("table", table_cells);
@@ -97,17 +98,13 @@
       // * HELPER FUNCTIONS *
 
       // To add a row to table with as many cells as elements in table_cells
-      function add_row(table_id, table_cells) {
-        var table = document.getElementById(table_id);
-        var row = table.insertRow(-1);
-        for (var i = 0; i < table_cells.length; i++) {
-          var cell = row.insertCell(i);
-          cell.innerHTML = table_cells[i];
-        }
-      }
-      // To add a row to table with as many cells as elements in table_cells
       // and some rows when clicked will open a new window with the file info
-      function add_row_with_file_info(table_id, table_cells, file_id = false) {
+      function add_row(
+        table_id,
+        table_cells,
+        file_id = false,
+        file_name = false
+      ) {
         var table = document.getElementById(table_id);
         var row = table.insertRow(-1);
         for (var i = 0; i < table_cells.length; i++) {
@@ -116,7 +113,12 @@
         }
         if (file_id) {
           row.onclick = function () {
-            window.open("/private/transcription?file_id=" + file_id);
+            window.open(
+              "/private/transcription?file_id=" +
+                file_id +
+                "&file_name=" +
+                file_name
+            );
           };
         }
       }
