@@ -13,10 +13,10 @@ if answer == 'DELETE':
 
     dotenv.load_dotenv(dotenv_path='.env.prod')
 
-    DATABASE_PATH = os.environ['DATABASE_PATH'] +'/'
+    DATABASE_PATH = os.environ['DATABASE_PATH'] + '/'
     DATABASE_FILE_NAME = os.environ['DATABASE_FILE_NAME']
 
-    # Check if database file exist and if so 
+    # Check if database file exist and if so
     # backup the database file with a new unique name based on uuid
     if os.path.exists(DATABASE_PATH + DATABASE_FILE_NAME):
         new_name = str(uuid.uuid4()) + '.db'
@@ -39,7 +39,19 @@ if answer == 'DELETE':
     c.execute('''CREATE TABLE files
                     (user_id text, file_name_stored text, file_name text, file_length numeric , file_status text, payment_status text, payment_id text)''')
 
-    print('Database initiated')
+    print('Files table initiated')
+
+    # Create the users table with the following columns:
+    # - user_id: the user's id, coming form firebase
+    # - user_email: the user's email
+    # - user_seconds: the amount of seconds the user has available to process files
+    # - user_status: the status of the user, can be 'active', 'inactive'
+    # - spending: the amount of money the user has spent
+
+    c.execute('''CREATE TABLE users
+                    (user_id text, user_email text, user_seconds numeric, user_status text, spending numeric)''')
+
+    print('Users table initiated')
 
 else:
     print('Database not initiated')

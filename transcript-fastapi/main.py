@@ -7,6 +7,10 @@ import os
 import stripe
 from pydantic import BaseModel
 
+PRICE_PER_MINUTE = os.environ["PRICE_PER_MINUTE"]
+MINIMUM_PAYMENT = os.environ["MINIMUM_PAYMENT"]
+
+
 # API key for stripe
 stripe.api_key = os.environ.get("STRIPE_API_KEY")
 
@@ -51,33 +55,60 @@ class User(BaseModel):
 
 
 # Stripe payment intent
-# Receives user id, payment intent and user_email
+# Receives user id, user_email
 # stores the client secret in the database for each
 # file and sends the client secret for stripe
 @app.post('/create-payment-intent/')
 async def create_payment(user: User):
     # try:
     info = get_pending_payment_files(user.user_id)
-    description = 'Transcription of ' + str(round(info['total_length']/60., 2)) + ' minutes,' + str(
-        info['total_files']) + ' files, email: ' + user.user_email
-    intent = stripe.PaymentIntent.create(
-        amount=round(info['total_price'] * 100.),
-        currency='usd',
-        automatic_payment_methods={
-            'enabled': True,
-        },
-        description=description,
-        receipt_email=user.user_email
-    )
+    seconds_available = get_user_seconds(user.user_id)
 
-    # Store the client secret in the database for each file
-    add_payment_id_to_files(
-        user.user_id, info["files"], intent['client_secret'])
-    return {
-        'clientSecret': intent['client_secret']
-    }
-    # except Exception as e:
-    #     return {'error': str(e)}, 403
+    # If the user has enough seconds to process the files
+    # do not charge the user
+    if info['total_length'] <= seconds_available:
+        add_payment_id_to_files(
+            user.user_id, info["files"], user.user_id+'free')
+
+        # Set files as paid and start transcriptions
+        change_files_status_to_paid(user.user_id+'free')
+        start_transcriptions(user.user_id+'free')
+
+        # Reduce the user's seconds
+        change_user_seconds(user.user_id, round(
+            seconds_available - info['total_length']))
+        return {
+            'clientSecret': 'free'
+        }
+    else:
+        # If the user does not have enough seconds to process the files
+        # charge the user
+        seconds_to_charge = info['total_length'] - seconds_available
+        price = max(seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
+
+        # Create a PaymentIntent with the order amount and currency
+
+        description = 'Transcription of ' + str(round(info['total_length']/60., 2)) + ' minutes,' + str(
+            info['total_files']) + ' files, email: ' + user.user_email
+
+        intent = stripe.PaymentIntent.create(
+            amount=round(price*100),
+            currency='usd',
+            automatic_payment_methods={
+                'enabled': True,
+            },
+            description=description,
+            receipt_email=user.user_email
+        )
+
+        # Store the client secret in the database for each file
+        add_payment_id_to_files(
+            user.user_id, info["files"], intent['client_secret'])
+        return {
+            'clientSecret': intent['client_secret']
+        }
+        # except Exception as e:
+        #     return {'error': str(e)}, 403
 
 
 # Show files of a user and its status
@@ -115,6 +146,9 @@ async def webhook(request: Request):
         change_files_status_to_paid(client_secret)
         start_transcriptions(client_secret)
 
+        # Reduce the user's seconds to zero
+        change_user_seconds_with_client_secret(client_secret, 0)
+
     elif (event['type'] == 'payment_intent.payment_failed') or (event['type'] == 'payment_intent.canceled'):
         payment_intent = event['data']['object']
         remove_payment_id(
@@ -144,3 +178,14 @@ async def transcription_finished(file_info: FileInfo):
 async def get_transcription(file_name_stored: str):
     transcription = get_transcription_text(file_name_stored)
     return transcription
+
+# Checks if user is new or not, and if new it will be added to the database
+
+
+@app.get('/check-new-user')
+async def check_new_user(user_id: str, user_email: str):
+    if check_if_user_exists(user_id):
+        return {'status': 'user exists'}
+    else:
+        add_new_user(user_id, user_email)
+        return {'status': 'user added'}

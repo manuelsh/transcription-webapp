@@ -58,6 +58,16 @@
             if (files.length > 0) {
               document.getElementById("transcriptions_status").style.display =
                 "block";
+            } else {
+              // if no file to process, user may be new, so may be added to the
+              // server database
+              fetch(
+                API_URL +
+                  "/check-new-user?user_id=" +
+                  user_id +
+                  "&email=" +
+                  user_email
+              );
             }
 
             // Add a row for each file
@@ -123,7 +133,8 @@
         }
       }
 
-      // Gets files to process from the id of a user
+      // Gets files to process from the id of a user.
+      // In case the user has no files to process, API will check if the user
       async function get_files_info(user_id) {
         url_with_user_id = FILES_INFO_URL + "?user_id=" + user_id;
         const response = await fetch(url_with_user_id);

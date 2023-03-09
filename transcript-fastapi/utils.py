@@ -8,8 +8,9 @@ import requests
 import json
 import re
 
-# Database file model
-# Latest update: 2023-02-14
+# Database model
+# Latest update: 2023-03-09
+# File table
 # Columns:
 # - user_id: the user's id, coming form firebase
 # - file_name_stored: the file's name stored in the server
@@ -24,6 +25,7 @@ USERS_FILES_PATH = os.environ["USERS_FILES_PATH"]+"/"
 DATABASE_PATH = os.environ["DATABASE_PATH"]+"/"
 DATABASE_FILE_NAME = os.environ["DATABASE_FILE_NAME"]
 PRICE_PER_MINUTE = os.environ["PRICE_PER_MINUTE"]
+NEW_USER_FREE_MINUTES = os.environ["NEW_USER_FREE_MINUTES"]
 
 # AWS credentials and info
 AWS_CREDENTIALS_ADDRESS = os.environ["AWS_CREDENTIALS_ADDRESS"]
@@ -139,15 +141,13 @@ def get_pending_payment_files(user_id) -> dict:
     files = [{"file_name": file[0],
               "file_length": file[1],
               "file_name_stored": file[2],
-              "file_price":round(file[1]/60. * float(PRICE_PER_MINUTE), 2)} for file in files]
+              } for file in files]
 
-    total_price = round(sum([file["file_price"] for file in files]), 2)
     total_length = sum([file["file_length"] for file in files])
     total_files = len(files)
 
     return {"files": files,
             "total_length": total_length,
-            "total_price": total_price,
             "total_files": total_files}
 
 
@@ -325,3 +325,48 @@ def get_transcription_text(file_name_stored: str) -> dict:
 
     # Returns the transcription text
     return {'transcription': transcription_json['text']}
+
+
+# User management
+# Users table
+# Columns:
+# - user_id: the user's id, coming form firebase
+# - user_email: the user's email
+# - user_seconds: the amount of seconds the user has available to process files
+# - user_status: the status of the user, can be 'active', 'inactive'
+# - spending: the amount of money the user has spent
+
+
+def check_if_user_exists(user_id) -> bool:
+    user = execute_sql(
+        "SELECT user_id FROM users WHERE user_id = '{}'".format(user_id), fetch=True)
+    if len(user) == 0:
+        return False
+    else:
+        return True
+
+
+# Create a user and give it NEW_USER_FREE_MINUTES minutes of free transcription by adding
+# them to the user_seconds column
+def create_user(user_id, user_email) -> None:
+    execute_sql("INSERT INTO users (user_id, user_email, user_seconds, spending) VALUES ('{}', '{}', '{}', '{}')".format(
+        user_id, user_email, NEW_USER_FREE_MINUTES*60, 0))
+
+
+# Get number of user_seconds
+def get_user_seconds(user_id) -> int:
+    user_seconds = execute_sql(
+        "SELECT user_seconds FROM users WHERE user_id = '{}'".format(user_id), fetch=True)[0][0]
+    return user_seconds
+
+
+def change_user_seconds(user_id, new_number_of_user_seconds) -> None:
+    execute_sql("UPDATE users SET user_seconds = '{}' WHERE user_id = '{}'".format(
+        new_number_of_user_seconds, user_id))
+
+
+def change_user_seconds_with_client_secret(client_secret, new_number_of_user_seconds) -> None:
+    # get the user id from the client secret from the files table
+    user_id = execute_sql("SELECT user_id FROM files WHERE payment_id = '{}'".format(
+        client_secret), fetch=True)[0][0]
+    change_user_seconds(user_id, new_number_of_user_seconds)

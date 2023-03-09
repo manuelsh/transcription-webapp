@@ -9,7 +9,7 @@ This serves the platic api. Stack is the following:
 5. Database: SQLite
 6. Frontend: HTML, CSS and Javascript
 7. Payment: Stripe
-8. AWS S3 and ec2
+8. AWS S3, Batch Jobs and ec2
 
 ## Overall mechanics
 
@@ -17,9 +17,12 @@ This repo contains the elements for the frontend and backend for the Platic API.
 
 The mechanics is the following:
 
-1. With the upload element, the user uploads the files to be transcribed and clicks on the button to checkout. The files are stored in the server. This uses the element 'file_upload_element.html' and the API endpoint '/uploadfile' and '/getfilestopay'.
-2. The checkout element opens the checkout page, which uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element 'checkout_payment_element.html' and the API endpoint '/getfilestopay' and 'createpaymentintent'.
-3. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element 'show_files_element.html' and the API endpoint '/get-files'.
+1. With the upload element, the user uploads the files to be transcribed and clicks on the button to checkout. The files are stored in an S3 bucket. This uses the element 'file_upload_element.html' and the API endpoint '/uploadfile' and '/getfilestopay'.
+2. If the user has free seconds larger than the files total length, the files will be set to transcribe. Otherwise, the user will be redirected to the checkout page for the difference.
+3. The checkout element opens the checkout page, which uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element 'checkout_payment_element.html' and the API endpoint '/getfilestopay' and 'createpaymentintent'. Note that there is a minimum payment set in the env file.
+4. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element 'show_files_element.html' and the API endpoint '/get-files'.
+5. In the server, with the files that are paid and ready to be transcribed, a batch job will be initiated using AWS Batch. This will transcribe the files and store them in the S3 bucket. The resulting files will be stored with the same name as the original file, but with the suffix `_result.json`. The batch job uses the container that is in the `whisper-container` folder.
+6. The user will see the file with the element `show_files_element.html` and the API endpoint `/get-files`.
 
 ## Running the server
 
@@ -59,7 +62,7 @@ and for development environment, run:
 
 ### S3
 
-S3 bucket is set up to store the files that are uploaded by the users. The bucket is called `platic-files` and it is set up so that it can be accessed only from the server.
+S3 bucket is set up to store the files that are uploaded by the users and the result of the transcription. The bucket is called `platic-files` and it is set up so that it can be accessed only from the server.
 
 ### Policies
 
@@ -69,9 +72,27 @@ The policy is called `platic-files-bucket-access` and it is in the file `aws/pol
 
 ### IAM Role
 
-There is an IAM role that needs to be added to the ec2 machine so that it can access the S3 bucket. The role is called `ec2-access-s3-platic-files` and it is in the file `aws/roles/ec2-access-s3-platic-files.json`.
+There is an IAM role that needs to be added to the ec2 machine so that it can access the S3 bucket and also that is used for the Batch jobs. The role is called `ec2-access-s3-platic-files`, and it should have the following policies:
 
-One needs to create that role, and then add the policy `platic-files-bucket-access` to it via the aws conssole.
+- `AmazonEC2ContainerServiceforEC2Role`, so that the ec2 machine can access the docker containers in the Batch jobs.
+- `platic-files-bucket-access`
+
+### Batch
+
+The Batch job is set up to run the container in the `whisper-container` folder, which pulls it from docker hub. For the batch job one needs to configure the four elements:
+
+1. Compute environment
+2. Job queue
+3. Job definition
+4. Job
+
+Number 1 and 2 are done in the AWS Batch console, number 3 is done in a Notebook, and number 4 is done programmatically.
+
+## Whisper container
+
+The Whisper container is in the folder `whisper-container`. It is a docker container that is used in the Batch job to transcribe the files.
+
+There is a readme.MD in the folder that explains its mechanics.
 
 ## Configuration (also to use in a new project)
 
@@ -85,9 +106,15 @@ The environment variables are set in the file `.env.prod` or in the `.env.dev` f
 - `DATABASE_PATH`: path to the folder where the database is stored.
 - `DATABASE_FILE_NAME`: name of the database file.
 - `PRICE_PER_MINUTE`: price per minute of transcription.
+- `NEW_USER_FREE_MINUTES`: free minutes for new users.
+- `MINIMUM_PAYMENT`: minimum payment for checkout with Stripe.
 - `STRIPE_API_KEY`: Stripe API key.
 - `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret.
 - `S3_BUCKET`: S3 bucket name.
+- `AWS_CREDENTIALS_ADDRESS`: address of the AWS credentials file associated with the ec2 machine,
+- `AWS_REGION`: AWS region.
+- `JOB_QUEUE`: AWS Batch job queue name.
+- `JOB_DEFINITION`: AWS Batch job definition name.
 
 ### Server
 
@@ -202,5 +229,3 @@ It receives the webhook from Stripe that confirms that some files have been pais
 ## Stripe
 
 Stripe is used to do the payment.
-
-
