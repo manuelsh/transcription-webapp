@@ -7,9 +7,162 @@
     <title>Upload part</title>
     <script src="https://www.gstatic.com/firebasejs/9.13.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.13.0/firebase-auth-compat.js"></script>
+    <!-- ---------------------------------------- -->
+    <!-- part below needs to be added to the head -->
+    <!-- ---------------------------------------- -->
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <style>
+      /* Variables */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        justify-content: center;
+        align-content: center;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      form {
+        width: 30vw;
+        min-width: 500px;
+        align-self: center;
+        box-shadow: 0px 0px 0px 0.5px rgba(50, 50, 93, 0.1),
+          0px 2px 5px 0px rgba(50, 50, 93, 0.1),
+          0px 1px 1.5px 0px rgba(0, 0, 0, 0.07);
+        border-radius: 7px;
+        padding: 40px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      #payment-message {
+        color: rgb(105, 115, 134);
+        font-size: 16px;
+        line-height: 20px;
+        padding-top: 12px;
+        text-align: center;
+      }
+
+      #payment-element {
+        margin-bottom: 24px;
+      }
+
+      /* Buttons and links */
+      button {
+        background: #5469d4;
+        font-family: Arial, sans-serif;
+        color: #ffffff;
+        border-radius: 4px;
+        border: 0;
+        padding: 12px 16px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        display: block;
+        transition: all 0.2s ease;
+        box-shadow: 0px 4px 5.5px 0px rgba(0, 0, 0, 0.07);
+        width: 100%;
+      }
+      button:hover {
+        filter: contrast(115%);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      /* spinner/processing state, errors */
+      .spinner,
+      .spinner:before,
+      .spinner:after {
+        border-radius: 50%;
+      }
+      .spinner {
+        color: #ffffff;
+        font-size: 22px;
+        text-indent: -99999px;
+        margin: 0px auto;
+        position: relative;
+        width: 20px;
+        height: 20px;
+        box-shadow: inset 0 0 0 2px;
+        -webkit-transform: translateZ(0);
+        -ms-transform: translateZ(0);
+        transform: translateZ(0);
+      }
+      .spinner:before,
+      .spinner:after {
+        position: absolute;
+        content: "";
+      }
+      .spinner:before {
+        width: 10.4px;
+        height: 20.4px;
+        background: #5469d4;
+        border-radius: 20.4px 0 0 20.4px;
+        top: -0.2px;
+        left: -0.2px;
+        -webkit-transform-origin: 10.4px 10.2px;
+        transform-origin: 10.4px 10.2px;
+        -webkit-animation: loading 2s infinite ease 1.5s;
+        animation: loading 2s infinite ease 1.5s;
+      }
+      .spinner:after {
+        width: 10.4px;
+        height: 10.2px;
+        background: #5469d4;
+        border-radius: 0 10.2px 10.2px 0;
+        top: -0.1px;
+        left: 10.2px;
+        -webkit-transform-origin: 0px 10.2px;
+        transform-origin: 0px 10.2px;
+        -webkit-animation: loading 2s infinite ease;
+        animation: loading 2s infinite ease;
+      }
+
+      @-webkit-keyframes loading {
+        0% {
+          -webkit-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        100% {
+          -webkit-transform: rotate(360deg);
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes loading {
+        0% {
+          -webkit-transform: rotate(0deg);
+          transform: rotate(0deg);
+        }
+        100% {
+          -webkit-transform: rotate(360deg);
+          transform: rotate(360deg);
+        }
+      }
+
+      @media only screen and (max-width: 600px) {
+        form {
+          width: 80vw;
+          min-width: initial;
+        }
+      }
+    </style>
+    <!-- ---------------------------------------- -->
+    <!-- part above needs to be added to the head -->
+    <!-- ---------------------------------------- -->
   </head>
   <body>
-    <!-- Here starts the element to be pasted in the upload section of webflwo -->
+    <!-- Here starts the element to be pasted in the upload section of webflow -->
     <!-- Remember to change the API_URL and the user id-->
 
     <!-- styling using Materialize CSS -->
@@ -33,36 +186,47 @@
       <table id="cart_table">
         <tr>
           <th>File name</th>
-          <th>File length</th>
+          <th>File length (seconds)</th>
         </tr>
       </table>
       <div id="total_price"></div>
       <p>You can upload more files or checkout now.</p>
-      <button
-        class="waves-effect waves-light btn blue lighten-1"
-        id="clean_cart"
-      >
+      <a class="waves-effect waves-light btn blue lighten-1" id="clean_cart">
         <i class="material-icons left">delete</i>
-        Remove all files
-      </button>
-      <button
+        Clean cart
+      </a>
+      <a
         class="waves-effect waves-light btn blue lighten-1"
         id="checkout_button"
         style="display: none"
       >
         <i class="material-icons left">check</i>
         Proceed to pay
-      </button>
-      <button
+      </a>
+      <a
         class="waves-effect waves-light btn blue lighten-1"
         id="checkout_button_free"
         style="display: none"
       >
         <i class="material-icons left">check</i>
         Confirm transcription
-      </button>
+      </a>
     </div>
 
+    <!-- Stripe payment elements -->
+    <form id="payment-form" style="display: none">
+      <div id="link-authentication-element">
+        <!--Stripe.js injects the Link Authentication Element-->
+      </div>
+      <div id="payment-element">
+        <!--Stripe.js injects the Payment Element-->
+      </div>
+      <button id="submit">
+        <div class="spinner hidden" id="spinner"></div>
+        <span id="button-text">Pay now</span>
+      </button>
+      <div id="payment-message" class="hidden"></div>
+    </form>
     <script>
       // ** This script manages the upload of files and the display of checkouts **
 
@@ -72,19 +236,20 @@
       const API_URL = "https://api.platic.io";
       const UPLOAD_FILE_URL = API_URL + "/uploadfile/";
       const GET_PENDING_FILES_URL = API_URL + "/getfilestopay/";
+      const PAYMENT_URL = API_URL + "/create-payment-intent/";
 
       // * Get users id from firebase *
-      const firebase_config = {
-        apiKey: "AIzaSyAgpnAKfoscIFAYhutFnh_B5YnQtplupP4",
-        authDomain: "platic-firebase.firebaseapp.com",
-        projectId: "platic-firebase",
-        storageBucket: "platic-firebase.appspot.com",
-        messagingSenderId: "19750389430",
-        appId: "1:19750389430:web:3730f997af20458939c817",
-      };
 
       // Initialize Firebase
       if (typeof app === "undefined") {
+        const firebase_config = {
+          apiKey: "AIzaSyAgpnAKfoscIFAYhutFnh_B5YnQtplupP4",
+          authDomain: "platic-firebase.firebaseapp.com",
+          projectId: "platic-firebase",
+          storageBucket: "platic-firebase.appspot.com",
+          messagingSenderId: "19750389430",
+          appId: "1:19750389430:web:3730f997af20458939c817",
+        };
         const app = firebase.initializeApp(firebase_config);
       }
 
@@ -93,7 +258,27 @@
       firebase.auth().onAuthStateChanged((user) => {
         if (user) {
           const user_id = user.uid;
-          //const user_id = "undefined";
+          const user_email = user.email;
+
+          // If there are files already in the cart, print them
+          get_files_to_pay(user_id).then((files_to_pay) => {
+            // if there are files in the cart, print them
+            if (files_to_pay.total_files > 0) {
+              print_files_to_pay(files_to_pay);
+              document.getElementById("cart_information").style.display =
+                "block";
+            } else {
+              // if no file to process, user may be new, so may be added to the
+              // server database
+              fetch(
+                API_URL +
+                  "/check-new-user?user_id=" +
+                  user_id +
+                  "&user_email=" +
+                  user_email
+              );
+            }
+          });
 
           // * Functions of upload button *
           var files = [];
@@ -127,7 +312,7 @@
                 document.getElementById("cart_information").style.display =
                   "none";
 
-                //Loops through all the selected files
+                //Loops through all the selected files to uplad them
                 for (let i = 0; i < files.length; i++) {
                   //uploads file
                   var paragraph = document.getElementById("status_text");
@@ -177,67 +362,33 @@
                 }
                 // Get files to pay and show them in the cart table
                 response = await get_files_to_pay(user_id);
-                for (let i = 0; i < response.files.length; i++) {
-                  add_row(
-                    "cart_table",
-                    response.files[i].file_name,
-                    Math.round(response.files[i].file_length)
-                  );
-                }
-                // Show total length
-                add_paragraph(
-                  "Total length: " + response.total_length + " seconds",
-                  "total_price"
-                );
-
-                // Show total price
-                if (response.total_price == 0) {
-                  add_paragraph(
-                    "Total price: Free! (You have free minutes left)",
-                    "total_price"
-                  );
-                } else {
-                  if (response.seconds_available > 0) {
-                    add_paragraph(
-                      "Total price: $" +
-                        response.total_price +
-                        " (You have " +
-                        response.seconds_available +
-                        " seconds left)",
-                      "total_price"
-                    );
-                  } else {
-                    add_paragraph(
-                      "Total price: $" + response.total_price,
-                      "total_price"
-                    );
-                  }
-                }
+                print_files_to_pay(response);
               } else {
                 alert("No files chosen");
               }
             });
 
-          // * Show correct button to proceed depending on total price *
-          if (response.total_price > 0) {
-            document.getElementById("checkout_button").style.display = "block";
-          } else {
-            document.getElementById("checkout_button_free").style.display =
-              "block";
-          }
-
           document.getElementById("checkout_button_free").onclick =
-            function () {
-              // TODO: SEND ORDER TO BACKEND TO PROCESS FILES
-              // TODO: WRITE MESSAGE TO USER THAT FILES ARE BEING PROCESSED
-              // TODO: SEND USER TO MAIN PAGE
-              location.href = "/private/checkout-page";
+            async function () {
+              // Sends order to backend to process files
+              response = await fetch(
+                API_URL + "/start-transcription?user_id=" + user_id
+              );
+              if (response.status == "success") {
+                console.log("Files will start being transcribed soon");
+                // Send users to main page with a message
+                location.href = "/private/main?message=OK";
+              } else {
+                console.log("Error processing files");
+                location.href = "/private/main?message=KO";
+              }
             };
 
           // * Functions of checkout button *
-          document.getElementById("checkout_button").onclick = function () {
-            // TODO: ADD ALL THE PAYMENT LOGIC HERE
-          };
+          document.getElementById("checkout_button").onclick =
+            async function () {
+              start_payment(user_id, user_email);
+            };
 
           // * Functions of clean cart button *
 
@@ -255,8 +406,61 @@
           window.location.href = "/sign-in";
         }
       }); // End of firebase.auth().onAuthStateChanged
-
+    </script>
+    <!-- ------------------------- -->
+    <!-- FIRST ELEMENT ABOVE -->
+    <!-- SECOND ELEMENT BELOW -->
+    <!-- ------------------------- -->
+    <script>
       // * General helper functions *
+
+      // Function that takes the response from get_files_to_pay
+      // and prints the files in the cart table
+      function print_files_to_pay(response) {
+        for (let i = 0; i < response.files.length; i++) {
+          add_row(
+            "cart_table",
+            response.files[i].file_name,
+            Math.round(response.files[i].file_length)
+          );
+        }
+        // Show total length
+        add_paragraph(
+          "Total length: " + Math.round(response.total_length) + " seconds",
+          "total_price"
+        );
+
+        // Show total price
+        if (response.total_price == 0) {
+          add_paragraph(
+            "Total price: Free! (You have free minutes left)",
+            "total_price"
+          );
+        } else {
+          if (response.seconds_available > 0) {
+            add_paragraph(
+              "Total price: $" +
+                response.total_price +
+                " (You have " +
+                response.seconds_available +
+                " seconds left)",
+              "total_price"
+            );
+          } else {
+            add_paragraph(
+              "Total price: $" + response.total_price,
+              "total_price"
+            );
+          }
+        }
+        // * Show correct button to proceed depending on total price *
+        if (response.total_price > 0) {
+          document.getElementById("checkout_button").style.display = "block";
+        } else {
+          document.getElementById("checkout_button_free").style.display =
+            "block";
+        }
+      }
 
       // fetch general function
       function fetchInit(form) {
@@ -301,6 +505,138 @@
         url_with_user_id = GET_PENDING_FILES_URL + "?user_id=" + user_id;
         const response = await fetch(url_with_user_id);
         return response.json();
+      }
+
+      // * Functions for stripe once checkout is clicked *
+
+      async function start_payment(user_id, user_email) {
+        await initialize(user_id, user_email);
+        await checkStatus();
+      }
+
+      var elements;
+
+      async function initialize(user_id, user_email) {
+        const body = {
+          user_id: user_id,
+          user_email: user_email,
+        };
+        const response = await fetch(PAYMENT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const { clientSecret } = await response.json();
+
+        const appearance = {
+          theme: "flat",
+        };
+        elements = stripe.elements({ appearance, clientSecret });
+
+        const linkAuthenticationElement = elements.create("linkAuthentication");
+        linkAuthenticationElement.mount("#link-authentication-element");
+
+        // linkAuthenticationElement.on("change", (event) => {
+        //   user_email = event.value.email;
+        // });
+
+        const paymentElementOptions = {
+          layout: "tabs",
+          billingDetails: {
+            email: user_email,
+          },
+        };
+
+        const paymentElement = elements.create(
+          "payment",
+          paymentElementOptions
+        );
+        paymentElement.mount("#payment-element");
+      }
+
+      async function handleSubmit(e) {
+        e.preventDefault();
+        setLoading(true);
+
+        const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            // Make sure to change this to your payment completion page
+            return_url: "https://www.platic.io/private/main",
+            receipt_email: user_email,
+          },
+        });
+
+        // This point will only be reached if there is an immediate error when
+        // confirming the payment. Otherwise, your customer will be redirected to
+        // your `return_url`. For some payment methods like iDEAL, your customer will
+        // be redirected to an intermediate site first to authorize the payment, then
+        // redirected to the `return_url`.
+        if (error.type === "card_error" || error.type === "validation_error") {
+          showMessage(error.message);
+        } else {
+          showMessage("An unexpected error occurred.");
+        }
+
+        setLoading(false);
+      }
+
+      async function checkStatus() {
+        const clientSecret = new URLSearchParams(window.location.search).get(
+          "payment_intent_client_secret"
+        );
+
+        if (!clientSecret) {
+          return;
+        }
+
+        const { paymentIntent } = await stripe.retrievePaymentIntent(
+          clientSecret
+        );
+
+        switch (paymentIntent.status) {
+          case "succeeded":
+            showMessage("Payment succeeded!");
+            break;
+          case "processing":
+            showMessage("Your payment is processing.");
+            break;
+          case "requires_payment_method":
+            showMessage("Your payment was not successful, please try again.");
+            break;
+          default:
+            showMessage("Something went wrong.");
+            break;
+        }
+      }
+
+      // ------- UI helpers -------
+
+      function showMessage(messageText) {
+        const messageContainer = document.querySelector("#payment-message");
+
+        messageContainer.classList.remove("hidden");
+        messageContainer.textContent = messageText;
+
+        setTimeout(function () {
+          messageContainer.classList.add("hidden");
+          messageText.textContent = "";
+        }, 4000);
+      }
+
+      // Show a spinner on payment submission
+      function setLoading(isLoading) {
+        if (isLoading) {
+          // Disable the button and show a spinner
+          document.querySelector("#submit").disabled = true;
+          document.querySelector("#spinner").classList.remove("hidden");
+          document.querySelector("#button-text").classList.add("hidden");
+        } else {
+          document.querySelector("#submit").disabled = false;
+          document.querySelector("#spinner").classList.add("hidden");
+          document.querySelector("#button-text").classList.remove("hidden");
+        }
       }
     </script>
   </body>

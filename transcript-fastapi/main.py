@@ -7,8 +7,8 @@ import os
 import stripe
 from pydantic import BaseModel
 
-PRICE_PER_MINUTE = os.environ["PRICE_PER_MINUTE"]
-MINIMUM_PAYMENT = os.environ["MINIMUM_PAYMENT"]
+PRICE_PER_MINUTE = float(os.environ["PRICE_PER_MINUTE"])
+MINIMUM_PAYMENT = float(os.environ["MINIMUM_PAYMENT"])
 
 
 # API key for stripe
@@ -52,9 +52,30 @@ async def get_files_to_pay(user_id: str):
             seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
     return info
 
+
+# Order the files to be transcribed when they are free
+@app.get("/start-transcription")
+async def start_transcription(user_id: str):
+    pending_payment_files = get_pending_payment_files(user_id)
+    seconds_available = get_user_seconds(user_id)
+
+    # Ensure that the user has enough seconds to process the files
+    if pending_payment_files['total_length'] <= seconds_available:
+        # Set files as paid and start transcriptions
+        payment_id = user_id+'_free'
+        add_payment_id_to_files(
+            user_id, pending_payment_files['files'], payment_id)
+        change_files_status_to_paid(payment_id)
+        start_transcriptions(payment_id)
+        # Reduce the user's seconds
+        change_user_seconds(user_id, round(
+            seconds_available - pending_payment_files['total_length']))
+        return {'status': 'success'}
+    else:
+        return {'status': 'error: not enough seconds'}
+
+
 # Removes all files from cart
-
-
 @app.get("/cleancart/")
 async def clean_cart(user_id: str):
     info = remove_all_files_from_cart(user_id)
@@ -76,51 +97,35 @@ async def create_payment(user: User):
     info = get_pending_payment_files(user.user_id)
     seconds_available = get_user_seconds(user.user_id)
 
-    # If the user has enough seconds to process the files
-    # do not charge the user
-    if info['total_length'] <= seconds_available:
-        add_payment_id_to_files(
-            user.user_id, info["files"], user.user_id+'free')
+    # User does not have enough seconds to process the files,
+    # so charge the user and reduce the user's seconds if he has any
+    seconds_to_charge = info['total_length'] - seconds_available
+    price = max(seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
 
-        # Set files as paid and start transcriptions
-        change_files_status_to_paid(user.user_id+'free')
-        start_transcriptions(user.user_id+'free')
+    # Create a PaymentIntent with the order amount and currency
 
-        # Reduce the user's seconds
-        change_user_seconds(user.user_id, round(
-            seconds_available - info['total_length']))
-        return {
-            'clientSecret': 'free'
-        }
-    else:
-        # If the user does not have enough seconds to process the files
-        # charge the user
-        seconds_to_charge = info['total_length'] - seconds_available
-        price = max(seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
+    description = 'Transcription of ' + str(round(info['total_length']/60., 2)) + ' minutes,' + str(
+        info['total_files']) + ' files, email: ' + user.user_email
 
-        # Create a PaymentIntent with the order amount and currency
+    intent = stripe.PaymentIntent.create(
+        amount=round(price*100),
+        currency='usd',
+        automatic_payment_methods={
+            'enabled': True,
+        },
+        description=description,
+        receipt_email=user.user_email
+    )
 
-        description = 'Transcription of ' + str(round(info['total_length']/60., 2)) + ' minutes,' + str(
-            info['total_files']) + ' files, email: ' + user.user_email
-
-        intent = stripe.PaymentIntent.create(
-            amount=round(price*100),
-            currency='usd',
-            automatic_payment_methods={
-                'enabled': True,
-            },
-            description=description,
-            receipt_email=user.user_email
-        )
-
-        # Store the client secret in the database for each file
-        add_payment_id_to_files(
-            user.user_id, info["files"], intent['client_secret'])
-        return {
-            'clientSecret': intent['client_secret']
-        }
-        # except Exception as e:
-        #     return {'error': str(e)}, 403
+    # Store the client secret in the database for each file
+    add_payment_id_to_files(
+        user.user_id, info["files"], intent['client_secret'])
+    return {
+        'clientSecret': intent['client_secret'],
+        'price': price,
+    }
+    # except Exception as e:
+    #     return {'error': str(e)}, 403
 
 
 # Show files of a user and its status

@@ -24,8 +24,7 @@ import re
 USERS_FILES_PATH = os.environ["USERS_FILES_PATH"]+"/"
 DATABASE_PATH = os.environ["DATABASE_PATH"]+"/"
 DATABASE_FILE_NAME = os.environ["DATABASE_FILE_NAME"]
-PRICE_PER_MINUTE = os.environ["PRICE_PER_MINUTE"]
-NEW_USER_FREE_MINUTES = os.environ["NEW_USER_FREE_MINUTES"]
+NEW_USER_FREE_MINUTES = float(os.environ["NEW_USER_FREE_MINUTES"])
 
 # AWS credentials and info
 AWS_CREDENTIALS_ADDRESS = os.environ["AWS_CREDENTIALS_ADDRESS"]
@@ -137,18 +136,23 @@ def get_pending_payment_files(user_id) -> dict:
     files = execute_sql(
         "SELECT file_name, file_length, file_name_stored FROM files WHERE user_id = '{}' AND payment_status = 'pending'".format(user_id), fetch=True)
 
-    # Puts data in a dictionary, file by file
-    files = [{"file_name": file[0],
-              "file_length": file[1],
-              "file_name_stored": file[2],
-              } for file in files]
+    if len(files) > 0:
+        # Puts data in a dictionary, file by file
+        files = [{"file_name": file[0],
+                  "file_length": file[1],
+                  "file_name_stored": file[2],
+                  } for file in files]
 
-    total_length = sum([file["file_length"] for file in files])
-    total_files = len(files)
+        total_length = sum([file["file_length"] for file in files])
+        total_files = len(files)
 
-    return {"files": files,
-            "total_length": total_length,
-            "total_files": total_files}
+        return {"files": files,
+                "total_length": total_length,
+                "total_files": total_files}
+    else:
+        return {"files": [],
+                "total_length": 0,
+                "total_files": 0}
 
 
 # Adds the client_secret to a set of files for a payment to be confirmed
@@ -349,7 +353,7 @@ def check_if_user_exists(user_id) -> bool:
 # them to the user_seconds column
 def create_user(user_id, user_email) -> None:
     execute_sql("INSERT INTO users (user_id, user_email, user_seconds, spending) VALUES ('{}', '{}', '{}', '{}')".format(
-        user_id, user_email, float(NEW_USER_FREE_MINUTES)*60., 0))
+        user_id, user_email, NEW_USER_FREE_MINUTES*60., 0))
 
 
 # Get number of user_seconds
