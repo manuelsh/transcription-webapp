@@ -38,6 +38,18 @@ async def receive_file(file: UploadFile, user_id: str):
 @app.get("/getfilestopay/")
 async def get_files_to_pay(user_id: str):
     info = get_pending_payment_files(user_id)
+    seconds_available = get_user_seconds(user_id)
+    # If the user has enough seconds to process the files
+    # do not charge the user
+    info['seconds_available'] = seconds_available
+    if info['total_length'] <= seconds_available:
+        info['total_price'] = 0
+    else:
+        # If the user does not have enough seconds to process the files
+        # charge the user
+        seconds_to_charge = info['total_length'] - seconds_available
+        info['total_price'] = max(
+            seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
     return info
 
 # Removes all files from cart
@@ -187,5 +199,5 @@ async def check_new_user(user_id: str, user_email: str):
     if check_if_user_exists(user_id):
         return {'status': 'user exists'}
     else:
-        add_new_user(user_id, user_email)
+        create_user(user_id, user_email)
         return {'status': 'user added'}

@@ -45,11 +45,10 @@ if answer == 'DELETE':
     # - user_id: the user's id, coming form firebase
     # - user_email: the user's email
     # - user_seconds: the amount of seconds the user has available to process files
-    # - user_status: the status of the user, can be 'active', 'inactive'
     # - spending: the amount of money the user has spent
 
     c.execute('''CREATE TABLE users
-                    (user_id text, user_email text, user_seconds numeric, user_status text, spending numeric)''')
+                    (user_id text, user_email text, user_seconds numeric, spending numeric)''')
 
     print('Users table initiated')
 

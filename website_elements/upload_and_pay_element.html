@@ -20,6 +20,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
     <!-- HTML elements -->
+    <!-- Elements will turn on and off depending on the upload and payment process
+    -->
     <div id="upload">
       <input type="file" id="files" multiple accept="audio/*, video/*" />
     </div>
@@ -36,8 +38,29 @@
       </table>
       <div id="total_price"></div>
       <p>You can upload more files or checkout now.</p>
-      <button class="btn warning" id="clean_cart">Remove all from cart</button>
-      <button class="btn warning" id="checkout_button">Checkout</button>
+      <button
+        class="waves-effect waves-light btn blue lighten-1"
+        id="clean_cart"
+      >
+        <i class="material-icons left">delete</i>
+        Remove all files
+      </button>
+      <button
+        class="waves-effect waves-light btn blue lighten-1"
+        id="checkout_button"
+        style="display: none"
+      >
+        <i class="material-icons left">check</i>
+        Proceed to pay
+      </button>
+      <button
+        class="waves-effect waves-light btn blue lighten-1"
+        id="checkout_button_free"
+        style="display: none"
+      >
+        <i class="material-icons left">check</i>
+        Confirm transcription
+      </button>
     </div>
 
     <script>
@@ -161,19 +184,59 @@
                     Math.round(response.files[i].file_length)
                   );
                 }
-                // Show total price
+                // Show total length
                 add_paragraph(
-                  "Total price: $" + response.total_price,
+                  "Total length: " + response.total_length + " seconds",
                   "total_price"
                 );
+
+                // Show total price
+                if (response.total_price == 0) {
+                  add_paragraph(
+                    "Total price: Free! (You have free minutes left)",
+                    "total_price"
+                  );
+                } else {
+                  if (response.seconds_available > 0) {
+                    add_paragraph(
+                      "Total price: $" +
+                        response.total_price +
+                        " (You have " +
+                        response.seconds_available +
+                        " seconds left)",
+                      "total_price"
+                    );
+                  } else {
+                    add_paragraph(
+                      "Total price: $" + response.total_price,
+                      "total_price"
+                    );
+                  }
+                }
               } else {
                 alert("No files chosen");
               }
             });
 
+          // * Show correct button to proceed depending on total price *
+          if (response.total_price > 0) {
+            document.getElementById("checkout_button").style.display = "block";
+          } else {
+            document.getElementById("checkout_button_free").style.display =
+              "block";
+          }
+
+          document.getElementById("checkout_button_free").onclick =
+            function () {
+              // TODO: SEND ORDER TO BACKEND TO PROCESS FILES
+              // TODO: WRITE MESSAGE TO USER THAT FILES ARE BEING PROCESSED
+              // TODO: SEND USER TO MAIN PAGE
+              location.href = "/private/checkout-page";
+            };
+
           // * Functions of checkout button *
           document.getElementById("checkout_button").onclick = function () {
-            location.href = "/private/checkout-page";
+            // TODO: ADD ALL THE PAYMENT LOGIC HERE
           };
 
           // * Functions of clean cart button *

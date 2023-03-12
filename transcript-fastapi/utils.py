@@ -333,7 +333,6 @@ def get_transcription_text(file_name_stored: str) -> dict:
 # - user_id: the user's id, coming form firebase
 # - user_email: the user's email
 # - user_seconds: the amount of seconds the user has available to process files
-# - user_status: the status of the user, can be 'active', 'inactive'
 # - spending: the amount of money the user has spent
 
 
@@ -350,7 +349,7 @@ def check_if_user_exists(user_id) -> bool:
 # them to the user_seconds column
 def create_user(user_id, user_email) -> None:
     execute_sql("INSERT INTO users (user_id, user_email, user_seconds, spending) VALUES ('{}', '{}', '{}', '{}')".format(
-        user_id, user_email, NEW_USER_FREE_MINUTES*60, 0))
+        user_id, user_email, float(NEW_USER_FREE_MINUTES)*60., 0))
 
 
 # Get number of user_seconds
