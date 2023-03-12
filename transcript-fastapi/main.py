@@ -34,6 +34,13 @@ async def receive_file(file: UploadFile, user_id: str):
     return info
 
 
+# Show files of a user and its status
+@app.get("/get-files")
+async def get_files(user_id: str):
+    info = get_files_info(user_id)
+    return info
+
+
 # Get information about files to be transcribed, their length, cost and total cost
 @app.get("/getfilestopay/")
 async def get_files_to_pay(user_id: str):
@@ -48,8 +55,10 @@ async def get_files_to_pay(user_id: str):
         # If the user does not have enough seconds to process the files
         # charge the user
         seconds_to_charge = info['total_length'] - seconds_available
-        info['total_price'] = max(
-            seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
+        initial_price = round(seconds_to_charge/60. * PRICE_PER_MINUTE, 2)
+        if initial_price < MINIMUM_PAYMENT:
+            info['minimum_payment'] = True
+        info['total_price'] = max(initial_price, MINIMUM_PAYMENT)
     return info
 
 
@@ -76,7 +85,9 @@ async def start_transcription(user_id: str):
 
 
 # Removes all files from cart
-@app.get("/cleancart/")
+
+
+@app.get("/cleancart")
 async def clean_cart(user_id: str):
     info = remove_all_files_from_cart(user_id)
     return info
@@ -100,7 +111,7 @@ async def create_payment(user: User):
     # User does not have enough seconds to process the files,
     # so charge the user and reduce the user's seconds if he has any
     seconds_to_charge = info['total_length'] - seconds_available
-    price = max(seconds_to_charge * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
+    price = max(seconds_to_charge/60 * PRICE_PER_MINUTE, MINIMUM_PAYMENT)
 
     # Create a PaymentIntent with the order amount and currency
 
@@ -126,13 +137,6 @@ async def create_payment(user: User):
     }
     # except Exception as e:
     #     return {'error': str(e)}, 403
-
-
-# Show files of a user and its status
-@app.get("/get-files")
-async def get_files(user_id: str):
-    info = get_files_info(user_id)
-    return info
 
 
 # Stripe payment confirmation webhook in Fast API

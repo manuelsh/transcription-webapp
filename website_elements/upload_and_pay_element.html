@@ -11,6 +11,10 @@
     <!-- part below needs to be added to the head -->
     <!-- ---------------------------------------- -->
     <script src="https://js.stripe.com/v3/"></script>
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
 
     <style>
       /* Variables */
@@ -156,7 +160,17 @@
           min-width: initial;
         }
       }
+
+      table {
+        padding-bottom: 10px;
+      }
+
+      a {
+        padding-bottom: 10px;
+        padding-top: 10px;
+      }
     </style>
+
     <!-- ---------------------------------------- -->
     <!-- part above needs to be added to the head -->
     <!-- ---------------------------------------- -->
@@ -186,30 +200,32 @@
       <table id="cart_table">
         <tr>
           <th>File name</th>
-          <th>File length (seconds)</th>
+          <th>File length</th>
         </tr>
       </table>
       <div id="total_price"></div>
       <p>You can upload more files or checkout now.</p>
-      <a class="waves-effect waves-light btn blue lighten-1" id="clean_cart">
+
+      <!-- buttons -->
+      <a class="waves-effect waves-light btn" id="clean_cart">
         <i class="material-icons left">delete</i>
-        Clean cart
+        Cancel
       </a>
       <a
-        class="waves-effect waves-light btn blue lighten-1"
+        class="waves-effect waves-light btn"
         id="checkout_button"
         style="display: none"
       >
         <i class="material-icons left">check</i>
-        Proceed to pay
+        Confirm and pay
       </a>
       <a
-        class="waves-effect waves-light btn blue lighten-1"
+        class="waves-effect waves-light btn"
         id="checkout_button_free"
         style="display: none"
       >
         <i class="material-icons left">check</i>
-        Confirm transcription
+        Confirm
       </a>
     </div>
 
@@ -396,7 +412,7 @@
             .getElementById("clean_cart")
             .addEventListener("click", async function (e) {
               const response = await fetch(
-                API_URL + "/cleancart/?user_id=" + user_id
+                API_URL + "/cleancart?user_id=" + user_id
               );
               console.log(response);
               window.location.reload();
@@ -417,16 +433,17 @@
       // Function that takes the response from get_files_to_pay
       // and prints the files in the cart table
       function print_files_to_pay(response) {
+        // builds table
         for (let i = 0; i < response.files.length; i++) {
           add_row(
             "cart_table",
             response.files[i].file_name,
-            Math.round(response.files[i].file_length)
+            to_time(response.files[i].file_length)
           );
         }
         // Show total length
         add_paragraph(
-          "Total length: " + Math.round(response.total_length) + " seconds",
+          "Total length: " + to_time(response.total_length),
           "total_price"
         );
 
@@ -437,18 +454,24 @@
             "total_price"
           );
         } else {
+          const total_price = Number(
+            Math.round((response.total_price + Number.EPSILON) * 100) / 100
+          ).toFixed(2); // rounds it to 2 decimals and convert it to a string
           if (response.seconds_available > 0) {
             add_paragraph(
               "Total price: $" +
-                response.total_price +
-                " (You have " +
-                response.seconds_available +
-                " seconds left)",
+                total_price +
+                " (" +
+                to_time(response.seconds_available) +
+                " free)",
               "total_price"
             );
           } else {
+            add_paragraph("Total price: $" + total_price, "total_price");
+          }
+          if (response["minimum_payment"] == true) {
             add_paragraph(
-              "Total price: $" + response.total_price,
+              "The minimum charge is $0.50. You can add more files.",
               "total_price"
             );
           }
@@ -509,7 +532,12 @@
 
       // * Functions for stripe once checkout is clicked *
 
+      // Stripe publishable API key
+      const stripe = Stripe(
+        "pk_test_51MO6iqFoUi6Vvl2UAhRc7lq0wMRVyHIytAY4t6m7eskAA8z4hXjJR9ddUsuZ8BeRJRm16dexLFMP39JwIjlqqqxu00U8gtWLvw"
+      );
       async function start_payment(user_id, user_email) {
+        document.getElementById("payment-form").style.display = "block"; // Unhide the payment form
         await initialize(user_id, user_email);
         await checkStatus();
       }
@@ -608,6 +636,19 @@
           default:
             showMessage("Something went wrong.");
             break;
+        }
+      }
+
+      function to_time(seconds) {
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var seconds = Math.round(seconds % 60);
+        if (hours == 0 && minutes == 0) {
+          return seconds + "sec";
+        } else if (hours == 0) {
+          return minutes + "min " + seconds + "sec";
+        } else {
+          return hours + "h " + minutes + "min " + seconds + "sec";
         }
       }
 

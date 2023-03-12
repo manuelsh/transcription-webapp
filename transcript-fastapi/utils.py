@@ -189,7 +189,7 @@ def remove_all_files_from_cart(user_id) -> dict:
 
         # Removes files from server
         for file in files:
-            os.remove(USERS_FILES_PATH + file[0])
+            delete_file_from_s3(file[0])
 
         # Changes status of files to "cancelled" and payment status to "cancelled"
         execute_sql("UPDATE files SET payment_status = 'cancelled', file_status = 'cancelled' WHERE user_id = '{}' AND payment_status = 'pending'".format(user_id))
@@ -329,6 +329,23 @@ def get_transcription_text(file_name_stored: str) -> dict:
 
     # Returns the transcription text
     return {'transcription': transcription_json['text']}
+
+# Delete file from S3
+
+
+def delete_file_from_s3(file_name: str) -> None:
+    # Get the credentials from the instance metadata service
+    r = requests.get(AWS_CREDENTIALS_ADDRESS)
+    credentials = json.loads(r.text)
+
+    # Gets S3 client
+    s3 = boto3.client('s3',
+                      region_name=AWS_REGION,
+                      aws_access_key_id=credentials['AccessKeyId'],
+                      aws_secret_access_key=credentials['SecretAccessKey'], aws_session_token=credentials['Token'])
+
+    # Deletes the file from S3
+    s3.delete_object(Bucket=S3_BUCKET, Key=file_name)
 
 
 # User management
