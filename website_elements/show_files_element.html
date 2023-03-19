@@ -19,11 +19,20 @@
     <!-- Compiled and minified JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
+    <div id="free_minutes" style="display: none">
+      <div class="card-content teal">
+        <span class="white-text">
+          You have <span id="free_minutes_text"></span> free trial
+          minutes.</span
+        >
+      </div>
+    </div>
     <div id="transcriptions_status" style="display: none">
+      <p>Click on the processed files to access the transcription</p>
       <table id="table" class="highlight">
         <tr>
           <th>File</th>
-          <th>Length (minutes)</th>
+          <th>Length</th>
           <th>Status</th>
         </tr>
       </table>
@@ -52,22 +61,32 @@
           const user_id = user.uid;
           const user_email = user.email;
 
+          // Ensure user is in database and get free minutes
+          user_info = fetch(
+            API_URL +
+              "/check-new-user?user_id=" +
+              user_id +
+              "&user_email=" +
+              user_email
+          );
+
+          // If user has free minutes, show the free minutes badge
+          user_info.then((response) => {
+            response.json().then((data) => {
+              if (data["free_seconds"] > 0) {
+                document.getElementById("free_minutes").style.display = "block";
+                document.getElementById("free_minutes_text").innerHTML =
+                  to_time(data["free_seconds"]);
+              }
+            });
+          });
+
           // Get files to process
           get_files_info(user_id).then((files) => {
             // If there are files to process, show the table
             if (files.length > 0) {
               document.getElementById("transcriptions_status").style.display =
                 "block";
-            } else {
-              // if no file to process, user may be new, so may be added to the
-              // server database
-              fetch(
-                API_URL +
-                  "/check-new-user?user_id=" +
-                  user_id +
-                  "&user_email=" +
-                  user_email
-              );
             }
 
             // Add a row for each file
@@ -82,7 +101,7 @@
               var table_cells = [
                 file["file_name"],
                 // round to minutes
-                Math.round(file["file_length"] / 60),
+                to_time(file["file_length"]),
                 status,
               ];
 
@@ -144,6 +163,23 @@
       // Takes a string and capitalises the first letter
       function capitalise_first_letter(string) {
         return string.charAt(0).toUpperCase() + string.slice(1);
+      }
+
+      function to_time(seconds) {
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var seconds = Math.round(seconds % 60);
+        if (hours == 0 && minutes == 0) {
+          return seconds + "sec";
+        } else if (hours == 0) {
+          if (seconds > 0) {
+            return minutes + "min " + seconds + "sec";
+          } else {
+            return minutes + "min";
+          }
+        } else {
+          return hours + "h " + minutes + "min " + seconds + "sec";
+        }
       }
     </script>
 

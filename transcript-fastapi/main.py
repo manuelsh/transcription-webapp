@@ -15,7 +15,7 @@ MINIMUM_PAYMENT = float(os.environ["MINIMUM_PAYMENT"])
 stripe.api_key = os.environ.get("STRIPE_API_KEY")
 
 # Fast API server
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 
 # CORS configuration
 app.add_middleware(
@@ -206,7 +206,9 @@ async def get_transcription(file_name_stored: str):
 @app.get('/check-new-user')
 async def check_new_user(user_id: str, user_email: str):
     if check_if_user_exists(user_id):
-        return {'status': 'user exists'}
+        free_seconds = get_user_seconds(user_id),
+        return {'status': 'user exists', 'free_seconds': free_seconds}
     else:
         create_user(user_id, user_email)
-        return {'status': 'user added'}
+        free_seconds = get_user_seconds(user_id)
+        return {'status': 'user added', 'free_seconds': free_seconds}

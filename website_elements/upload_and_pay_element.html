@@ -176,8 +176,9 @@
     <!-- ---------------------------------------- -->
   </head>
   <body>
-    <!-- Here starts the element to be pasted in the upload section of webflow -->
-    <!-- Remember to change the API_URL and the user id-->
+    <!-- ---------------------------------------- -->
+    <!-- part below goes to the first element of webflow  -->
+    <!-- ---------------------------------------- -->
 
     <!-- styling using Materialize CSS -->
     <link
@@ -246,13 +247,14 @@
     <script>
       // ** This script manages the upload of files and the display of checkouts **
 
-      // Set constants
+      // Set global variables
 
       //const API_URL = "http://api.platic.io:8000";
       const API_URL = "https://api.platic.io";
       const UPLOAD_FILE_URL = API_URL + "/uploadfile/";
       const GET_PENDING_FILES_URL = API_URL + "/getfilestopay/";
       const PAYMENT_URL = API_URL + "/create-payment-intent/";
+      var user_email = "";
 
       // * Get users id from firebase *
 
@@ -274,7 +276,7 @@
       firebase.auth().onAuthStateChanged((user) => {
         if (user) {
           const user_id = user.uid;
-          const user_email = user.email;
+          user_email = user.email;
 
           // If there are files already in the cart, print them
           get_files_to_pay(user_id).then((files_to_pay) => {
@@ -471,7 +473,7 @@
           }
           if (response["minimum_payment"] == true) {
             add_paragraph(
-              "The minimum charge is $0.50. You can add more files.",
+              "The minimum charge is $" + total_price+". You can still add more files.",
               "total_price"
             );
           }
@@ -536,11 +538,15 @@
       const stripe = Stripe(
         "pk_test_51MO6iqFoUi6Vvl2UAhRc7lq0wMRVyHIytAY4t6m7eskAA8z4hXjJR9ddUsuZ8BeRJRm16dexLFMP39JwIjlqqqxu00U8gtWLvw"
       );
+
       async function start_payment(user_id, user_email) {
         document.getElementById("payment-form").style.display = "block"; // Unhide the payment form
-        await initialize(user_id, user_email);
-        await checkStatus();
+        initialize(user_id, user_email);
+        checkStatus();
       }
+      document
+        .querySelector("#payment-form")
+        .addEventListener("submit", handleSubmit);
 
       var elements;
 
@@ -549,6 +555,7 @@
           user_id: user_id,
           user_email: user_email,
         };
+
         const response = await fetch(PAYMENT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -560,6 +567,7 @@
         const appearance = {
           theme: "flat",
         };
+
         elements = stripe.elements({ appearance, clientSecret });
 
         const linkAuthenticationElement = elements.create("linkAuthentication");
