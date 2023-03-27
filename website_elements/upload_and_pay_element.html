@@ -473,7 +473,9 @@
           }
           if (response["minimum_payment"] == true) {
             add_paragraph(
-              "The minimum charge is $" + total_price+". You can still add more files.",
+              "The minimum charge is $" +
+                total_price +
+                ". You can still add more files.",
               "total_price"
             );
           }
@@ -536,7 +538,7 @@
 
       // Stripe publishable API key
       const stripe = Stripe(
-        "pk_test_51MO6iqFoUi6Vvl2UAhRc7lq0wMRVyHIytAY4t6m7eskAA8z4hXjJR9ddUsuZ8BeRJRm16dexLFMP39JwIjlqqqxu00U8gtWLvw"
+        "pk_live_51MO6iqFoUi6Vvl2UXr3pH2zmEkYo3MrN2h2344Fpl6hZMz2fNB1S2q1ct0LxEr2OdU7SpllYInnMEIjmPsrwzaEq00UxLKWzCc"
       );
 
       async function start_payment(user_id, user_email) {

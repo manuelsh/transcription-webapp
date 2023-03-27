@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- ----------------------------------------------- -->
+    <!--  Part below should be pasted in webflow element -->
+    <!-- ----------------------------------------------- -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <!-- this is to center the text of buttons -->
+    <style type="text/css">
+      .btn {
+        display: inline-flex;
+        align-items: center;
+      }
+    </style>
+
+    <!-- Dropdown Trigger -->
+    <a class="dropdown-trigger btn" href="#" data-target="dropdown1"
+      >Download <i class="large material-icons">file_download</i></a
+    >
+
+    <!-- Dropdown Structure -->
+    <ul id="dropdown1" class="dropdown-content">
+      <li>
+        <a href="#!">Word file<i class="material-icons">dvr</i></a>
+      </li>
+      <li>
+        <a href="#!">Plain text<i class="material-icons">subject</i></a>
+      </li>
+      <li>
+        <a href="#!">PDF<i class="material-icons">picture_as_pdf</i></a>
+      </li>
+    </ul>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var elems = document.querySelectorAll(".dropdown-trigger");
+        var options = {
+          coverTrigger: false,
+          constrainWidth: false,
+        };
+        var instances = M.Dropdown.init(elems, options);
+      });
+    </script>
+  </body>
+</html>
