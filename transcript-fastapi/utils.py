@@ -7,6 +7,9 @@ import boto3
 import requests
 import json
 import re
+import docx
+import fpdf
+from zipfile import ZipFile
 
 # Database model
 # Latest update: 2023-03-09
@@ -330,9 +333,38 @@ def get_transcription_text(file_name_stored: str) -> dict:
     # Returns the transcription text
     return {'transcription': transcription_json['text']}
 
+
+# Returns a text file with the transcription
+def transcription_to_txt(transcription: str, file_name: str) -> str:
+    file_path = USERS_FILES_PATH+file_name+'.txt'
+    with open(file_path, 'w') as file:
+        file.write(transcription)
+    return file_path
+
+
+# Returns a word file with the transcritpion
+def transcription_to_docx(transcription: str, file_name: str) -> str:
+    file_path = USERS_FILES_PATH+file_name+'.docx'
+    doc = docx.Document()
+    doc.add_paragraph(transcription)
+    doc.save(file_path)
+    return file_path
+
+
+# Returns a pdf file with the transcription
+def transcription_to_pdf(transcription: str, file_name: str) -> str:
+    file_path = USERS_FILES_PATH+file_name+'.pdf'
+    # Creates pdf and ensures that the paragraph splits in lines if it's too long
+    pdf = fpdf.FPDF()
+    pdf.set_auto_page_break(0)
+    pdf.add_page()
+    pdf.set_font('Arial', '', 12)
+    pdf.multi_cell(0, 5, transcription)
+    pdf.output(file_path, 'F')
+    return file_path
+
+
 # Delete file from S3
-
-
 def delete_file_from_s3(file_name: str) -> None:
     # Get the credentials from the instance metadata service
     r = requests.get(AWS_CREDENTIALS_ADDRESS)
@@ -390,3 +422,31 @@ def change_user_seconds_with_client_secret(client_secret, new_number_of_user_sec
     user_id = execute_sql("SELECT user_id FROM files WHERE payment_id = '{}'".format(
         client_secret), fetch=True)[0][0]
     change_user_seconds(user_id, new_number_of_user_seconds)
+
+
+def get_all_transcriptions_from_user_in_zip(user_id: str) -> str:
+    # Get all the file names that have file_status processed from the user
+    file_name_pairs = execute_sql(
+        "SELECT file_name_stored, file_name FROM files WHERE user_id = '{}' AND file_status = '{}'".format(user_id, 'processed'), fetch=True)
+
+    # Build all txt files
+    for file_name_pair in file_name_pairs:
+        transcription = get_transcription_text(
+            file_name_pair[0])['transcription']
+        transcription_to_txt(transcription, file_name_pair[1])
+
+    # Zip all files
+    zip_file_path = USERS_FILES_PATH+user_id+'.zip'
+    with ZipFile(zip_file_path, 'w') as zip:
+        for file_name_pair in file_name_pairs:
+            zip.write(USERS_FILES_PATH+file_name_pair[1]+'.txt',
+                      file_name_pair[1]+'.txt')
+
+    # Delete all txt files, note that there may be duplicates
+    duplicate_checks = []
+    for file_name_pair in file_name_pairs:
+        if file_name_pair[1] not in duplicate_checks:
+            duplicate_checks.append(file_name_pair[1])
+            os.remove(USERS_FILES_PATH+file_name_pair[1]+'.txt')
+
+    return zip_file_path

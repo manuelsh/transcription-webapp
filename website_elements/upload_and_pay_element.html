@@ -204,14 +204,11 @@
           <th>File length</th>
         </tr>
       </table>
-      <div id="total_price"></div>
+      <div id="total_price_div"></div>
       <p>You can upload more files or checkout now.</p>
 
       <!-- buttons -->
-      <a class="waves-effect waves-light btn" id="clean_cart">
-        <i class="material-icons left">delete</i>
-        Cancel
-      </a>
+
       <a
         class="waves-effect waves-light btn"
         id="checkout_button"
@@ -227,6 +224,11 @@
       >
         <i class="material-icons left">check</i>
         Confirm
+      </a>
+      <!-- cancel button -->
+      <a class="waves-effect waves-light btn" id="clean_cart">
+        <i class="material-icons left">delete</i>
+        Cancel
       </a>
     </div>
 
@@ -244,6 +246,7 @@
       </button>
       <div id="payment-message" class="hidden"></div>
     </form>
+
     <script>
       // ** This script manages the upload of files and the display of checkouts **
 
@@ -322,7 +325,7 @@
                   table.deleteRow(i);
                 }
 
-                document.getElementById("total_price").innerHTML = "";
+                document.getElementById("total_price_div").innerHTML = "";
 
                 // Hides the checkout part and shows again the upload status info element
                 document.getElementById("upload_status_info").style.display =
@@ -404,8 +407,12 @@
 
           // * Functions of checkout button *
           document.getElementById("checkout_button").onclick =
+            // Hides payment and cancel button to display the payment form
             async function () {
+              document.getElementById("checkout_button").style.display = "none";
+              document.getElementById("clean_cart").style.display = "none";
               start_payment(user_id, user_email);
+              // Change the pay now button text to "Pay now - X.XX US$" to show the total price
             };
 
           // * Functions of clean cart button *
@@ -446,14 +453,14 @@
         // Show total length
         add_paragraph(
           "Total length: " + to_time(response.total_length),
-          "total_price"
+          "total_price_div"
         );
 
         // Show total price
         if (response.total_price == 0) {
           add_paragraph(
             "Total price: Free! (You have free minutes left)",
-            "total_price"
+            "total_price_div"
           );
         } else {
           const total_price = Number(
@@ -461,22 +468,24 @@
           ).toFixed(2); // rounds it to 2 decimals and convert it to a string
           if (response.seconds_available > 0) {
             add_paragraph(
-              "Total price: $" +
+              "Total price: US$" +
                 total_price +
                 " (" +
                 to_time(response.seconds_available) +
                 " free)",
-              "total_price"
+              "total_price_div"
             );
+            document.getElementById("button-text").innerHTML =
+              "Pay now - " + total_price + " US$";
           } else {
-            add_paragraph("Total price: $" + total_price, "total_price");
+            add_paragraph("Total price: US$" + total_price, "total_price_div");
+            document.getElementById("button-text").innerHTML =
+              "Pay now - " + total_price + " US$";
           }
           if (response["minimum_payment"] == true) {
             add_paragraph(
-              "The minimum charge is $" +
-                total_price +
-                ". You can still add more files.",
-              "total_price"
+              "The minimum charge is US$" + total_price,
+              "total_price_div"
             );
           }
         }

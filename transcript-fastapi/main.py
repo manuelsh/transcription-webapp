@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from utils import *
 import os
 import stripe
@@ -200,9 +201,8 @@ async def get_transcription(file_name_stored: str):
     transcription = get_transcription_text(file_name_stored)
     return transcription
 
+
 # Checks if user is new or not, and if new it will be added to the database
-
-
 @app.get('/check-new-user')
 async def check_new_user(user_id: str, user_email: str):
     if check_if_user_exists(user_id):
@@ -212,3 +212,29 @@ async def check_new_user(user_id: str, user_email: str):
         create_user(user_id, user_email)
         free_seconds = get_user_seconds(user_id)
         return {'status': 'user added', 'free_seconds': free_seconds}
+
+
+# Download file with transcription. File type could be pdf, word or plain text
+@app.get("/download-transcription")
+async def download_transcription(file_name_stored: str, file_name: str, file_type: str):
+    transcription = get_transcription_text(file_name_stored)['transcription']
+    if file_type == 'pdf':
+        return FileResponse(transcription_to_pdf(transcription, file_name), media_type='application/pdf')
+    elif file_type == 'docx':
+        return FileResponse(transcription_to_docx(transcription, file_name), media_type='application/msword')
+    elif file_type == 'txt':
+        return FileResponse(transcription_to_txt(transcription, file_name), media_type='text/plain')
+    else:
+        return {'status': 'error: file type must be pdf, word or txt'}
+
+
+# Downloads all transcriptions in a zip file in txt format
+# This was a bespoke request, currently only working with a direct link of the type:
+# https://api.platic.io/download-all-transcriptions?user_id=xxxxxxxx
+@app.get("/download-all-transcriptions")
+async def download_all_transcriptions(user_id: str):
+    zip_file_path = get_all_transcriptions_from_user_in_zip(user_id)
+    if zip_file_path:
+        return FileResponse(zip_file_path, media_type='application/zip')
+    else:
+        return {'status': 'error: no files found'}

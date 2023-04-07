@@ -13,3 +13,7 @@ boto3==1.26.84
 # Payment
 stripe==5.0.0
 pydantic==1.10.4
+
+# Concert documents
+python-docx==0.8.11
+fpdf==1.7.2

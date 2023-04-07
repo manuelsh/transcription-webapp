@@ -45,6 +45,14 @@
       </li>
     </ul>
     <script>
+      const API_URL_2 = "https://api.platic.io";
+      const FILES_INFO_URL = API_URL_2 + "/download-transcription";
+
+      // Get file id and file name from url parameters
+      var urlParams2 = new URLSearchParams(window.location.search);
+      var file_id_2 = urlParams2.get("file_id");
+      var file_name_2 = urlParams2.get("file_name");
+
       document.addEventListener("DOMContentLoaded", function () {
         var elems = document.querySelectorAll(".dropdown-trigger");
         var options = {
@@ -53,6 +61,53 @@
         };
         var instances = M.Dropdown.init(elems, options);
       });
+
+      // When pressing the file type download button, get the file from the server
+      // and download it
+
+      // Word file
+      document
+        .getElementById("dropdown1")
+        .getElementsByTagName("li")[0]
+        .getElementsByTagName("a")[0].onclick = function () {
+        get_file(file_id_2, file_name_2, "docx");
+      };
+
+      // Plain text
+      document
+        .getElementById("dropdown1")
+        .getElementsByTagName("li")[1]
+        .getElementsByTagName("a")[0].onclick = function () {
+        get_file(file_id_2, file_name_2, "txt");
+      };
+
+      // PDF
+      document
+        .getElementById("dropdown1")
+        .getElementsByTagName("li")[2]
+        .getElementsByTagName("a")[0].onclick = function () {
+        get_file(file_id_2, file_name_2, "pdf");
+      };
+
+      // Function to download files from server
+      function get_file(file_name_stored, file_name, file_type) {
+        url =
+          FILES_INFO_URL +
+          "?file_name_stored=" +
+          file_name_stored +
+          "&file_name=" +
+          file_name +
+          "&file_type=" +
+          file_type;
+
+        // Create a link to the file and click it
+        // ensure that the file is downloaded instead of opened in the browser
+
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = file_name;
+        link.click();
+      }
     </script>
   </body>
 </html>
