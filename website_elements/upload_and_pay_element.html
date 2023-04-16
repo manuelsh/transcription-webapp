@@ -193,6 +193,12 @@
     <div id="upload">
       <input type="file" id="files" multiple accept="audio/*, video/*" />
     </div>
+
+    <!-- progress bar -->
+    <div id="progress_bar" class="progress" style="display: none">
+      <div class="indeterminate"></div>
+    </div>
+
     <div id="upload_status_info">
       <p id="status_text"></p>
       <p id="completion_text"></p>
@@ -333,7 +339,10 @@
                 document.getElementById("cart_information").style.display =
                   "none";
 
-                //Loops through all the selected files to uplad them
+                // Shows the progress bar
+                document.getElementById("progress_bar").style.display = "block";
+
+                //Loops through all the selected files to upload them
                 for (let i = 0; i < files.length; i++) {
                   //uploads file
                   var paragraph = document.getElementById("status_text");
@@ -373,6 +382,8 @@
                     console.log("File duplicated in cart");
                   }
                 }
+                // Hides the progress bar
+                document.getElementById("progress_bar").style.display = "none";
 
                 // If at least one file is suitable, show the checkout part and hides the upload part
                 if (suitable_files) {
