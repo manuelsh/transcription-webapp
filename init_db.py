@@ -35,9 +35,10 @@ if answer == 'DELETE':
     # - file_status: the status of the file, can be 'pending', 'processing', 'processed', 'error'
     # - payment_status: the status of the payment, can be 'pending', 'paid', 'error', 'free' or 'canceled'
     # - payment_id: the id of the payment, coming from stripe (client_secret), can be null
+    # - rating: the rating of the transcription, can be null
 
     c.execute('''CREATE TABLE files
-                    (user_id text, file_name_stored text, file_name text, file_length numeric , file_status text, payment_status text, payment_id text)''')
+                    (user_id text, file_name_stored text, file_name text, file_length numeric , file_status text, payment_status text, payment_id text, rating numeric)''')
 
     print('Files table initiated')
 

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- ----------------------------------------------- -->
+    <!--  Part below should be pasted in webflow element -->
+    <!-- ----------------------------------------------- -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <div id="audio_player" style="display: none">
+      <audio id="audio" controls></audio>
+    </div>
+
+    <div id="transcriptions_text" style="display: none">
+      <h5 id="file_name"></h5>
+      <table id="table" class="highlight">
+        <tr>
+          <th>Timestamp</th>
+          <th>Text</th>
+        </tr>
+      </table>
+    </div>
+
+    <script>
+      const API_URL = "https://api.platic.io";
+      const GET_TRANSCRIPTION_URL = API_URL + "/get-transcription";
+
+      // * Get users id from firebase *
+
+      // // Initialize Firebase
+      // if (typeof app === "undefined") {
+      //   const firebase_config = {
+      //     apiKey: "AIzaSyAgpnAKfoscIFAYhutFnh_B5YnQtplupP4",
+      //     authDomain: "platic-firebase.firebaseapp.com",
+      //     projectId: "platic-firebase",
+      //     storageBucket: "platic-firebase.appspot.com",
+      //     messagingSenderId: "19750389430",
+      //     appId: "1:19750389430:web:3730f997af20458939c817",
+      //   };
+      //   const app = firebase.initializeApp(firebase_config);
+      // }
+
+      // Get file id from the url file_id parameter and file name
+      const urlParams = new URLSearchParams(window.location.search);
+      const file_id = urlParams.get("file_id");
+      const file_name = urlParams.get("file_name");
+
+      // Add link to the audio file
+      get_audio_link(file_id).then((link) => {
+        document.getElementById("audio").src = link;
+
+        document.getElementById("audio_player").style.display = "block";
+      });
+
+      get_transcription(file_id, true).then((transcription) => {
+        // If there is a transcription, show the text
+        if (transcription) {
+          document.getElementById("transcriptions_text").style.display =
+            "block";
+          document.getElementById("file_name").innerHTML = file_name;
+
+          // Add rows to the table for each segment of transcription
+          // the format of the transcription is:
+          // segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
+          transcription["segments"].forEach((segment) => {
+            add_row("table", [
+              convert_seconds_to_timestamps(segment["start"]),
+              segment["text"],
+            ]);
+          });
+          document.getElementById("transcription_text").innerHTML =
+            transcription["transcription"];
+        }
+      });
+
+      // firebase.auth().onAuthStateChanged((user) => {
+      //   if (user) {
+      //     // Get transcription from file_id
+      //     get_transcription(file_id).then((transcription) => {
+      //       // If there is a transcription, show the text
+      //       if (transcription) {
+      //         document.getElementById("transcriptions_text").style.display =
+      //           "block";
+      //         document.getElementById("file_name").innerHTML = file_name;
+
+      //         // Add rows to the table for each segment of transcription
+      //         // the format of the transcription is:
+      //         // segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
+      //         transcription["segments"].forEach((segment) => {
+      //           add_row("table", [segment["start"], segment["text"]]);
+      //         });
+      //         document.getElementById("transcription_text").innerHTML =
+      //           transcription["transcription"];
+      //       }
+      //     });
+      //   } else {
+      //     // No user is signed in.
+      //     // send user to sign in page
+      //     window.location.href = "/sign-in";
+      //   }
+      // });
+
+      // Get transcription GET function
+      async function get_transcription(file_id, timestamps) {
+        const response = await fetch(
+          GET_TRANSCRIPTION_URL +
+            "?file_name_stored=" +
+            file_id +
+            "&include_timestamps=" +
+            timestamps,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const data = await response.json();
+        return data;
+      }
+
+      // Converts seconds to format MM:SS if seconds is less than one hour,
+      // otherewise converts it to HH:MM:SS.
+      function convert_seconds_to_timestamps(seconds) {
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds - hours * 3600) / 60);
+        var seconds = Math.floor(seconds - hours * 3600 - minutes * 60);
+
+        if (hours < 10) {
+          hours = "0" + hours;
+        }
+        if (minutes < 10) {
+          minutes = "0" + minutes;
+        }
+        if (seconds < 10) {
+          seconds = "0" + seconds;
+        }
+
+        if (hours == "00") {
+          return minutes + ":" + seconds;
+        } else {
+          return hours + ":" + minutes + ":" + seconds;
+        }
+      }
+
+      function add_row(table_id, table_cells) {
+        var table = document.getElementById(table_id);
+        var row = table.insertRow(-1);
+        for (var i = 0; i < table_cells.length; i++) {
+          var cell = row.insertCell(i);
+          cell.innerHTML = table_cells[i];
+        }
+      }
+
+      // calls the API to get the S3 link of an audio file
+      function get_audio_link(file_id) {
+        return fetch(
+          API_URL + "/get-audio-file-link?file_name_stored=" + file_id
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            return data["link"];
+          });
+      }
+    </script>
+    <!-- ----------------------------------------------- -->
+    <!-- --------------STOP PASTING HERE---------------- -->
+    <!-- ----------------------------------------------- -->
+  </body>
+</html>

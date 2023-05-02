@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rating element</title>
+    <!-- ---------------------------------------------------- -->
+    <!--  Part below should go in the HEAD of webflow element -->
+    <!-- ---------------------------------------------------- -->
+
+    <style>
+      .star {
+        background: lightgrey;
+        clip-path: polygon(
+          50% 0%,
+          61% 35%,
+          98% 35%,
+          68% 57%,
+          79% 91%,
+          50% 70%,
+          21% 91%,
+          32% 57%,
+          2% 35%,
+          39% 35%
+        );
+        display: inline-block;
+        height: 30px;
+        width: 30px;
+        margin-left: 1px;
+        transition: transform 0.1s;
+      }
+      .star:hover {
+        transform: scale(1.2);
+      }
+      .star:focus {
+        transform: scale(1.2);
+      }
+      .stcomp {
+        cursor: pointer;
+        display: flex;
+        list-style-type: none;
+        justify-content: center;
+        align-items: center;
+      }
+
+      main {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+      }
+      .star-filled {
+        background: orange;
+      }
+      .ratingText {
+        font-size: 2rem;
+        font-weight: bold;
+      }
+
+      div.card {
+        display: table;
+        margin: 0 auto;
+        width: fit-content;
+        text-align: center;
+        padding: 10px;
+      }
+
+      span {
+        font-size: 1.5rem;
+        padding: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ---------------------------------------------------- -->
+    <!--  Part below should go in the BODY of webflow element -->
+    <!-- ---------------------------------------------------- -->
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <div class="card white">
+      <div class="col s12 m5">
+        <div id="rating">
+          <span class="blue-text">Rate the transcription</span>
+        </div>
+      </div>
+    </div>
+    <script>
+      // if API_URL does not exist, create
+
+      const API_URL_3 = "https://api.platic.io";
+
+      const SET_RATING_URL = API_URL_3 + "/rate-transcription";
+      const GET_RATING_URL = API_URL_3 + "/get-transcription-rating";
+
+      // Get file id from the url file_id parameter and file name
+      const urlParams_2 = new URLSearchParams(window.location.search);
+      const file_name_stored = urlParams_2.get("file_id");
+
+      // Rating elements
+      const makeStarRating = function (noOfStars = 5) {
+        let rating = 0;
+        let starComponent;
+
+        function changeRating(newRating) {
+          rating = newRating;
+        }
+
+        function getStarComponent() {
+          if (!starComponent) {
+            starComponent = document.createElement("ul");
+            starComponent.className = "stcomp";
+            for (let i = 0; i < noOfStars; i++) {
+              const li = document.createElement("li");
+              li.setAttribute("data-rating", i + 1);
+              li.className = "star";
+              starComponent.append(li);
+            }
+            starComponent.addEventListener("mouseover", onMouseOver);
+            starComponent.addEventListener("mouseleave", onMouseLeave);
+            starComponent.addEventListener("click", onMouseClick);
+          }
+          return starComponent;
+        }
+
+        function renderChanges(rating) {
+          for (let index = 0; index < rating; index++) {
+            starComponent.children[index].classList.add("star-filled");
+          }
+          for (let index = rating; index < noOfStars; index++) {
+            starComponent.children[index].classList.remove("star-filled");
+          }
+        }
+
+        function getRating() {
+          return rating;
+        }
+
+        function onMouseClick(e) {
+          let star = e.target;
+          let isStar = star.classList.contains("star");
+          if (isStar) {
+            let { rating } = star.dataset;
+            rating = rating === getRating() ? 0 : rating;
+            changeRating(rating);
+            renderChanges(rating);
+            // Send rating to server, is a get method called
+            // parameters to send are file_name_stored and rating
+            const url = `${SET_RATING_URL}?file_name_stored=${file_name_stored}&rating=${rating}`;
+            fetch(url)
+              .then((res) => res.json())
+              .then((data) => {
+                console.log(data);
+              })
+              .catch((err) => {
+                console.log(err);
+              });
+          }
+        }
+
+        // Get current rating from server
+        function getPreviosRating() {
+          const url = `${GET_RATING_URL}?file_name_stored=${file_name_stored}`;
+          fetch(url)
+            .then((res) => res.json())
+            .then((data) => {
+              const { rating } = data;
+              // if rating is not null, change rating and render changes
+              if (rating) {
+                changeRating(rating);
+                renderChanges(rating);
+              }
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }
+
+        function onMouseOver(e) {
+          let isStar = e.target.classList.contains("star");
+          if (isStar) {
+            const { rating } = e.target.dataset;
+            renderChanges(rating);
+          }
+        }
+
+        function onMouseLeave(e) {
+          renderChanges(rating);
+        }
+
+        return { getRating, getStarComponent, getPreviosRating };
+      };
+
+      const ratingModule = makeStarRating();
+      const starComponent = ratingModule.getStarComponent();
+      const container = document.querySelector("#rating");
+
+      // Get previous rating from server
+      ratingModule.getPreviosRating();
+
+      container.append(starComponent);
+    </script>
+  </body>
+</html>

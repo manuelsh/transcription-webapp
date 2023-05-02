@@ -58,6 +58,10 @@
                 transcription["transcription"];
             }
           });
+        } else {
+          // No user is signed in.
+          // send user to sign in page
+          window.location.href = "/sign-in";
         }
       });
 

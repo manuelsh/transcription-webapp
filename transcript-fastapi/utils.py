@@ -10,6 +10,8 @@ import re
 import docx
 import fpdf
 from zipfile import ZipFile
+from emails import send_email
+
 
 # Database model
 # Latest update: 2023-03-09
@@ -22,6 +24,7 @@ from zipfile import ZipFile
 # - file_status: the processing status of the file, can be 'pending', 'processing', 'processed', 'error'
 # - payment_status: the status of the payment, can be 'pending', 'paid'
 # - payment_id: the id of the payment, coming from stripe (client_secret)
+# - rating: the rating of the transcription, can be null
 
 # --- Main variables from environment variables
 USERS_FILES_PATH = os.environ["USERS_FILES_PATH"]+"/"
@@ -90,8 +93,8 @@ def stores_file(audio_file, user_id) -> str:
 
 def records_file_in_db(file_name_stored, file_name, user_id, file_length) -> None:
     # records file name, user_id and status=pending in database
-    execute_sql("INSERT INTO files VALUES ('{}','{}','{}','{}','{}','{}','{}')".format(
-        user_id, file_name_stored, file_name, file_length, "pending", "pending", "pending"))
+    execute_sql("INSERT INTO files VALUES ('{}','{}','{}','{}','{}','{}','{}','{}')".format(
+        user_id, file_name_stored, file_name, file_length, "pending", "pending", "pending", None))
 
 
 def checks_file_duplicated(file_name, user_id, file_length) -> tuple:
@@ -320,7 +323,7 @@ def get_file_from_s3(file_name: str) -> None:
 
 
 # Return transcription from file name stored
-def get_transcription_text(file_name_stored: str) -> dict:
+def get_transcription_text(file_name_stored: str, include_timestamps=False) -> dict:
 
     # Downloads the json file from S3
     file_name_with_transcription = file_name_stored+'_result.json'
@@ -331,7 +334,10 @@ def get_transcription_text(file_name_stored: str) -> dict:
         transcription_json = json.load(file)
 
     # Returns the transcription text
-    return {'transcription': transcription_json['text']}
+    if include_timestamps:
+        return transcription_json
+    else:
+        return {'transcription': transcription_json['text']}
 
 
 # Returns a text file with the transcription
@@ -422,6 +428,73 @@ def change_user_seconds_with_client_secret(client_secret, new_number_of_user_sec
     user_id = execute_sql("SELECT user_id FROM files WHERE payment_id = '{}'".format(
         client_secret), fetch=True)[0][0]
     change_user_seconds(user_id, new_number_of_user_seconds)
+
+
+# Add ratings of transcriptions to database
+def update_file_rating(file_name_stored, rating) -> None:
+    execute_sql("UPDATE files SET rating = '{}' WHERE file_name_stored = '{}'".format(
+        rating, file_name_stored))
+
+
+def get_file_rating(file_name_stored):
+    rating = execute_sql("SELECT rating FROM files WHERE file_name_stored = '{}'".format(
+        file_name_stored), fetch=True)
+    if len(rating) == 0:
+        return None
+    else:
+        return rating[0][0]
+
+# Send email to user once the transcription is ready
+
+
+def send_finished_email(file_name_stored):
+    # Get the user id from the file_name_stored
+    user_id = execute_sql("SELECT user_id FROM files WHERE file_name_stored = '{}'".format(
+        file_name_stored), fetch=True)[0][0]
+    # Get the user email from the user id
+    user_email = execute_sql("SELECT user_email FROM users WHERE user_id = '{}'".format(
+        user_id), fetch=True)[0][0]
+
+    # Send email adding a link to see the transcription
+    # link will be with the following form:
+    # https://www.platic.io/private/transcription?file_id=[file_name_stored]&file_name=[file_name]
+
+    # Get the file name from the file_name_stored
+    file_name = execute_sql("SELECT file_name FROM files WHERE file_name_stored = '{}'".format(
+        file_name_stored), fetch=True)[0][0]
+
+    # Create the link
+    link = 'https://www.platic.io/private/transcription?file_id={}&file_name={}'.format(
+        file_name_stored, file_name)
+
+    # Transform the spaces of the link to %20
+    link = link.replace(' ', '%20')
+
+    # Send the email
+    send_email(user_email, f'Your transcription is ready! - {file_name}',
+               f'''The file: 
+               {file_name}
+                has been transcribed.
+                Click here to see the transcription: {link}''')
+
+
+# Get the link of a file in S3, used for audiofiles
+def get_link_of_s3_file(file_name) -> str:
+    # Get the credentials from the instance metadata service
+    r = requests.get(AWS_CREDENTIALS_ADDRESS)
+    credentials = json.loads(r.text)
+
+    # Gets S3 client
+    s3 = boto3.client('s3',
+                      region_name=AWS_REGION,
+                      aws_access_key_id=credentials['AccessKeyId'],
+                      aws_secret_access_key=credentials['SecretAccessKey'], aws_session_token=credentials['Token'])
+
+    # Get the file url
+    file_url = s3.generate_presigned_url(
+        ClientMethod='get_object', Params={'Bucket': S3_BUCKET, 'Key': file_name}, ExpiresIn=3600)
+
+    return file_url
 
 
 def get_all_transcriptions_from_user_in_zip(user_id: str) -> str:

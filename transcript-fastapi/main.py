@@ -190,6 +190,8 @@ async def transcription_finished(file_info: FileInfo):
     if (file_info.new_file_status == 'error') or (file_info.new_file_status == 'processed'):
         update_file_status(file_info.file_name_stored,
                            file_info.new_file_status)
+        if file_info.new_file_status == 'processed':
+            send_finished_email(file_info.file_name_stored)
         return {'status': 'success'}
     else:
         return {'status': 'error, new_file_status must be error or processed, not ' + file_info.new_file_status}
@@ -197,8 +199,12 @@ async def transcription_finished(file_info: FileInfo):
 
 # Return transcription from a file name stored in the database
 @app.get("/get-transcription")
-async def get_transcription(file_name_stored: str):
-    transcription = get_transcription_text(file_name_stored)
+async def get_transcription(file_name_stored: str, include_timestamps: bool = False):
+    if include_timestamps:
+        transcription = get_transcription_text(
+            file_name_stored, include_timestamps=True)
+    else:
+        transcription = get_transcription_text(file_name_stored)
     return transcription
 
 
@@ -228,9 +234,31 @@ async def download_transcription(file_name_stored: str, file_name: str, file_typ
         return {'status': 'error: file type must be pdf, word or txt'}
 
 
+# Receives rating of a transcription and updates it in the database
+@app.get("/rate-transcription")
+async def rate_transcription(file_name_stored: str, rating: int):
+    if rating < 1 or rating > 5:
+        return {'status': 'error: rating must be between 1 and 5'}
+    else:
+        update_file_rating(file_name_stored, rating)
+        return {'status': 'success'}
+
+
+@app.get("/get-transcription-rating")
+async def get_transcription_rating(file_name_stored: str):
+    rating = get_file_rating(file_name_stored)
+    return {'rating': rating}
+
+
+@app.get("/get-audio-file-link")
+async def get_audio_file_link(file_name_stored: str):
+    return {"link": get_link_of_s3_file(file_name_stored)}
+
 # Downloads all transcriptions in a zip file in txt format
 # This was a bespoke request, currently only working with a direct link of the type:
 # https://api.platic.io/download-all-transcriptions?user_id=xxxxxxxx
+
+
 @app.get("/download-all-transcriptions")
 async def download_all_transcriptions(user_id: str):
     zip_file_path = get_all_transcriptions_from_user_in_zip(user_id)
