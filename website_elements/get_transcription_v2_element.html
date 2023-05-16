@@ -1,3 +1,4 @@
+<!-- http://127.0.0.1:5500/website_elements/get_transcription_v2_element.html?file_id=b3l01m3ahMQ9pR7DP9DSU5Ukba33_f2890730-fa48-4848-bd46-3cf7a76a2a6a.flac -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -15,9 +16,39 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
 
-    <div id="audio_player" style="display: none">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.8/plyr.css" />
+    <script src="https://cdn.plyr.io/3.6.8/plyr.js"></script>
+
+    <div
+      id="audio_player"
+      style="display: none; position: relative; padding-bottom: 50px"
+    >
       <audio id="audio" controls></audio>
+      <h2
+        id="audio_player_title"
+        style="
+          position: absolute;
+          top: 15px;
+          color: rgb(69, 69, 69);
+          font-size: 1rem;
+          z-index: 1;
+        "
+      ></h2>
+    </div>
+
+    <div id="save_status">
+      <p id="content_saved" style="display: none">
+        <i class="tiny material-icons">cloud_done</i> Content saved
+      </p>
+
+      <p id="content_not_saved" style="display: none">
+        <i class="tiny material-icons">cloud_off</i> Press enter to save.
+      </p>
     </div>
 
     <div id="transcriptions_text" style="display: none">
@@ -31,9 +62,6 @@
     </div>
 
     <script>
-      const API_URL = "https://api.platic.io";
-      const GET_TRANSCRIPTION_URL = API_URL + "/get-transcription";
-
       // * Get users id from firebase *
 
       // // Initialize Firebase
@@ -49,16 +77,49 @@
       //   const app = firebase.initializeApp(firebase_config);
       // }
 
+      // firebase.auth().onAuthStateChanged((user) => {
+      //   if (user) {
+      //     // User is signed in.
+      //     // Get user id
+      //     const user_id = user.uid;
+      //     console.log("user_id: " + user_id);
+      //   } else {
+      //     // No user is signed in.
+      //     // send user to sign in page
+      //     window.location.href = "/sign-in";
+      //   }
+      // });
+
+      // comment part above to run this offline
+      const API_URL = "https://api.platic.io";
+      const GET_TRANSCRIPTION_URL = API_URL + "/get-transcription";
+
       // Get file id from the url file_id parameter and file name
       const urlParams = new URLSearchParams(window.location.search);
       const file_id = urlParams.get("file_id");
       const file_name = urlParams.get("file_name");
 
+      var content_saved = true;
+
+      // Toast tip
+      M.toast({
+        html: "TIP: Edit the text while listening to the audio.",
+        classes: "rounded",
+        displayLength: 5000,
+      });
+
       // Add link to the audio file
       get_audio_link(file_id).then((link) => {
         document.getElementById("audio").src = link;
-
+        // Add PLYR audio player
+        const player = new Plyr("audio", {
+          controls: ["play", "progress", "current-time", "mute", "volume"], // Example control options
+        });
+        window.player = player;
         document.getElementById("audio_player").style.display = "block";
+
+        // add title to the audio player
+        document.getElementById("audio_player_title").innerHTML = file_name;
       });
 
       get_transcription(file_id, true).then((transcription) => {
@@ -66,48 +127,18 @@
         if (transcription) {
           document.getElementById("transcriptions_text").style.display =
             "block";
-          document.getElementById("file_name").innerHTML = file_name;
 
           // Add rows to the table for each segment of transcription
           // the format of the transcription is:
           // segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
+          // Each row should when clicked, the audio player should seek to the timestamp
           transcription["segments"].forEach((segment) => {
-            add_row("table", [
-              convert_seconds_to_timestamps(segment["start"]),
-              segment["text"],
-            ]);
+            add_row("table", segment["start"], segment["text"]);
           });
-          document.getElementById("transcription_text").innerHTML =
-            transcription["transcription"];
+          // document.getElementById("transcription_text").innerHTML =
+          //   transcription["transcription"];
         }
       });
-
-      // firebase.auth().onAuthStateChanged((user) => {
-      //   if (user) {
-      //     // Get transcription from file_id
-      //     get_transcription(file_id).then((transcription) => {
-      //       // If there is a transcription, show the text
-      //       if (transcription) {
-      //         document.getElementById("transcriptions_text").style.display =
-      //           "block";
-      //         document.getElementById("file_name").innerHTML = file_name;
-
-      //         // Add rows to the table for each segment of transcription
-      //         // the format of the transcription is:
-      //         // segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
-      //         transcription["segments"].forEach((segment) => {
-      //           add_row("table", [segment["start"], segment["text"]]);
-      //         });
-      //         document.getElementById("transcription_text").innerHTML =
-      //           transcription["transcription"];
-      //       }
-      //     });
-      //   } else {
-      //     // No user is signed in.
-      //     // send user to sign in page
-      //     window.location.href = "/sign-in";
-      //   }
-      // });
 
       // Get transcription GET function
       async function get_transcription(file_id, timestamps) {
@@ -152,13 +183,88 @@
         }
       }
 
-      function add_row(table_id, table_cells) {
+      // Each row should when clicked, the audio player should seek to the timestamp
+      function add_row(table_id, time_stamp, text) {
         var table = document.getElementById(table_id);
         var row = table.insertRow(-1);
-        for (var i = 0; i < table_cells.length; i++) {
-          var cell = row.insertCell(i);
-          cell.innerHTML = table_cells[i];
-        }
+        var cell1 = row.insertCell(0);
+        var cell2 = row.insertCell(1);
+
+        cell1.innerHTML = convert_seconds_to_timestamps(time_stamp);
+        cell2.innerHTML = text;
+
+        // When clicking on the tex in the cell, the audio player should seek to the timestamp
+        // and a text area should appear to edit the text
+        cell2.addEventListener("mousedown", function () {
+          document.getElementById("audio").currentTime = time_stamp;
+          //document.getElementById("audio").play();
+
+          // checks if a text_area already exists in the cell
+          // if it does, then do nothing
+
+          if (cell2.getElementsByTagName("textarea").length > 0) {
+            return;
+          }
+          // Close all previously opened text areas
+          var text_areas = document.getElementsByTagName("textarea");
+          for (var i = 0; i < text_areas.length; i++) {
+            var textarea = text_areas[i];
+            var parent = textarea.parentNode;
+            var textNode = document.createTextNode(textarea.value);
+            parent.innerHTML = "";
+            parent.appendChild(textNode);
+          }
+
+          // Create a text area with the text, text area
+          // should be centered vertically in the cell
+          var text_area = document.createElement("textarea");
+
+          content_saved_signal(false);
+
+          text_area.style.resize = "none";
+          text_area.style.border = "0.05px solid #ccc";
+          text_area.style.outline = "0.05px solid #ccc";
+
+          text_area.style.padding = "0px";
+          text_area.style.lineHeight = "1.25";
+          // var computedStyle = getComputedStyle(cell2);
+          // text_area.style.height = computedStyle.fontSize;
+          text_area.style.overflow = "show";
+
+          // Add the text area inside the cell
+
+          text_area.value = cell2.innerHTML;
+          this.innerHTML = "";
+          this.appendChild(text_area);
+
+          // when clicking outside or pressing escape, should save the text in the cell
+          function eventHandler() {
+            // Get the text from the text area
+            var text = this.value;
+
+            // Update the text in the database
+            // Get the row number of the cell
+            var segment_index = this.parentNode.parentNode.rowIndex - 1;
+
+            // Update transcription
+            update_transcription(file_id, segment_index, text);
+            content_saved_signal(true);
+
+            // Remove the text area and add the text to the cell
+            this.parentNode.innerHTML = text;
+
+            // Adds a content saved message
+            content_saved = true;
+          }
+          text_area.addEventListener("blur", eventHandler);
+          // if press enter, also call eventHandler
+          text_area.addEventListener("keydown", function (e) {
+            if (e.keyCode == 13) {
+              e.preventDefault(); // Prevent the default behavior of the Enter key
+              this.blur(); // Programmatically trigger the blur event
+            }
+          });
+        });
       }
 
       // calls the API to get the S3 link of an audio file
@@ -170,6 +276,31 @@
           .then((data) => {
             return data["link"];
           });
+      }
+
+      // calls the API to update the transcription as a POST to "/update-transcription"
+      function update_transcription(file_id, segment_index, text) {
+        fetch(API_URL + "/update-transcription", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            file_name_stored: file_id,
+            segment_index: segment_index,
+            text: text,
+          }),
+        });
+      }
+
+      function content_saved_signal(status) {
+        if (status) {
+          document.getElementById("content_saved").style.display = "block";
+          document.getElementById("content_not_saved").style.display = "none";
+        } else {
+          document.getElementById("content_not_saved").style.display = "block";
+          document.getElementById("content_saved").style.display = "none";
+        }
       }
     </script>
     <!-- ----------------------------------------------- -->

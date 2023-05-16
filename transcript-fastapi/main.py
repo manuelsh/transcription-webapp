@@ -254,6 +254,24 @@ async def get_transcription_rating(file_name_stored: str):
 async def get_audio_file_link(file_name_stored: str):
     return {"link": get_link_of_s3_file(file_name_stored)}
 
+
+# Update transcription
+class TranscriptionSegment(BaseModel):
+    file_name_stored: str
+    segment_index: int
+    text: str
+
+
+@app.post("/update-transcription")
+async def update_transcription(transcription_segment: TranscriptionSegment):
+    if transcription_segment.segment_index < 0:
+        return {'status': 'error: segment_number must be greater or equal to 0'}
+    else:
+        update_transcription_text(transcription_segment.file_name_stored,
+                                  transcription_segment.segment_index, transcription_segment.text)
+        return {'status': 'success'}
+
+
 # Downloads all transcriptions in a zip file in txt format
 # This was a bespoke request, currently only working with a direct link of the type:
 # https://api.platic.io/download-all-transcriptions?user_id=xxxxxxxx

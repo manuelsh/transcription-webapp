@@ -337,7 +337,11 @@ def get_transcription_text(file_name_stored: str, include_timestamps=False) -> d
     if include_timestamps:
         return transcription_json
     else:
-        return {'transcription': transcription_json['text']}
+        # Join all text segments separated by a space
+        # segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
+        text_to_return = ' '.join(
+            [segment['text'] for segment in transcription_json['segments']])
+        return {'transcription': text_to_return}
 
 
 # Returns a text file with the transcription
@@ -495,6 +499,41 @@ def get_link_of_s3_file(file_name) -> str:
         ClientMethod='get_object', Params={'Bucket': S3_BUCKET, 'Key': file_name}, ExpiresIn=3600)
 
     return file_url
+
+
+def stores_dict_in_json_file(dictionary, file_name):
+    result_json = json.dumps(dictionary)
+    with open(file_name, 'w') as f:
+        f.write(result_json)
+
+
+def stores_file_in_s3(file_path, file_name) -> str:
+    # Stores file in a file, upload to S3, and removes the file
+    s3 = boto3.resource('s3')
+    s3.Bucket(S3_BUCKET).upload_file(file_path, file_name)
+    return True
+
+
+def update_transcription_text(file_name_stored,
+                              segment_number, new_text):
+    # Get the transcription json
+
+    transcription_json = get_transcription_text(
+        file_name_stored, include_timestamps=True)
+
+    # Update the transcription json which has the following key:
+    # segments: [{"id": 1, "seek": 0, "start": 5.4, "end": 8.6, "text": "text"...}{...}]
+    transcription_json['segments'][segment_number]['text'] = new_text
+
+    # Upload the transcription json to S3
+    json_file_name = file_name_stored+'_result.json'
+    stores_dict_in_json_file(
+        transcription_json, USERS_FILES_PATH + json_file_name)
+    stores_file_in_s3(USERS_FILES_PATH + json_file_name,
+                      json_file_name)
+
+    # Delete the transcription json from the server
+    os.remove(USERS_FILES_PATH + json_file_name)
 
 
 def get_all_transcriptions_from_user_in_zip(user_id: str) -> str:
