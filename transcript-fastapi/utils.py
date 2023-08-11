@@ -448,9 +448,8 @@ def get_file_rating(file_name_stored):
     else:
         return rating[0][0]
 
+
 # Send email to user once the transcription is ready
-
-
 def send_finished_email(file_name_stored):
     # Get the user id from the file_name_stored
     user_id = execute_sql("SELECT user_id FROM files WHERE file_name_stored = '{}'".format(

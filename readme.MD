@@ -1,32 +1,40 @@
-# Platic server, API and frontend elements
+# A webapp for transcribing audio files
 
-This serves the platic api. Stack is the following:
+In this repo you will find the elements to build a webapp for performing transcription of files. The webapp includes authetication of users, payment, handling of files and automatic transcription using state of the art models.
 
-1. API: FastApi
+It is composed by the different elements needed in the frontend (for files uploading, payment, reviewing and downloading transcriptions, authenticate users, and more) and the elements of the backend; mostly an API and a few docker containers.
+
+The stack used is the following:
+
+1. API: mostly built using Python FastApi
 2. Serving: GUnicorn and Nginx
 3. SSL certificate: Certbot
 4. Containers with Docker Compose
-5. Database: SQLite
-6. Frontend: HTML, CSS and Javascript
+5. Database: SQLite, would need to be scaled to a better solution
+6. Frontend elements: HTML, CSS, Javascript and materialize framework
 7. Payment: Stripe
-8. AWS S3, Batch Jobs and ec2
+8. AWS S3: mostly Batch Jobs and ec2
+9. ML model uses Whisper from OpenAI, downloaded from HuggingFace
+10. User authentication: Firebase
 
-## Overall mechanics
+## Overall mechanics and elements in this repo
 
-This repo contains the elements for the frontend and backend for the Platic API. The frontend is a few elements made in html, CSS and javascript, that need to be added to the website, and the backend is the API that is deployed in a server, with GUnicorn and Nginx.
+The frontend are a few elements made in html, CSS and javascript, that need to be added to the website (you can find them in `/website_elements` folder), and the backend is the API that is deployed in a server, with GUnicorn and Nginx.
 
-The mechanics is the following:
+The different elements of the webapp interact in the following way:
 
-1. With the upload element, the user uploads the files to be transcribed and clicks on the button to checkout. The files are stored in an S3 bucket. This uses the element 'file_upload_element.html' and the API endpoint '/uploadfile' and '/getfilestopay'.
-2. If the user has free seconds larger than the files total length, the files will be set to transcribe. Otherwise, the user will be redirected to the checkout page for the difference.
-3. The checkout element opens the checkout page, which uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element 'checkout_payment_element.html' and the API endpoint '/getfilestopay' and 'createpaymentintent'. Note that there is a minimum payment set in the env file.
-4. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element 'show_files_element.html' and the API endpoint '/get-files'.
-5. In the server, with the files that are paid and ready to be transcribed, a batch job will be initiated using AWS Batch. This will transcribe the files and store them in the S3 bucket. The resulting files will be stored with the same name as the original file, but with the suffix `_result.json`. The batch job uses the container that is in the `whisper-container` folder.
-6. The user will see the file with the element `show_files_element.html` and the API endpoint `/get-files`.
+1. First, a user authenticates, using the frontend elements in the file `sign-in.html`. User can be redirected to a website to start uploading files to be transcribed.
+2. With the frontend upload element, the user uploads the files to be transcribed and clicks on the button to checkout. The files are stored in an S3 bucket. This uses the element `file_upload_element.html` and the API endpoint `/uploadfile` and `/getfilestopay`.
+3. If the user has free seconds (so that she can test the transcription) larger than the files total length, the files will be set to transcribe for free. Otherwise, the user will be redirected to the checkout page to pay the difference.
+4. The checkout element opens the checkout page so that the user can pay. It uses Stripe. It shows the files that are ready to be transcribed, the total price and the credit card payment element. This uses the element `checkout_payment_element.html` and the API endpoint `/getfilestopay` and `createpaymentintent`. Note that there is a minimum payment set in the env file.
+5. Once the payment is done, the API has a Stripe webhook that receives the information that a user has paid. The user will be redirected to the page that shows the files that are ready to be transcribed and the ones transcribed already. This uses the element `show_files_element.html` and the API endpoint `/get-files`.
+6. In the server, with the files that are paid and ready to be transcribed, a batch job will be initiated using AWS Batch. This will transcribe the files and store them in the S3 bucket. The resulting files will be stored with the same name as the original file, but with the suffix `_result.json`. The batch job uses the container that is in the `whisper-container` folder.
+7. Once the file is transcribed and email is sent to the user informing her that the transcription is available.
+8. The user will see the file with the element `show_files_element.html` and the API endpoint `/get-files`. He will be able to download the files and rate them.
 
 ## Running the server
 
-To run the production server, inside the folder run:
+To run the production server (this was done in an ec2 machine), inside the folder run:
 
 `sudo docker-compose  --env-file .env.prod -f docker-compose.prod.yml up -d --build`
 
@@ -38,9 +46,11 @@ It important to run it with `sudo` as it needs to have root access to the certif
 
 Once the server is running, you can test it with for example by:
 
-`curl https://api.platic.io/docs`
+`curl https://api.yourwebsite.com/docs`
 
 or browsing it there, which should return the FastAPI swagger documentation.
+
+Note that you need to setup your URL so that the subdomain `api` redirects to your ec2 machine serving the model.
 
 ## Stopping
 
@@ -58,7 +68,18 @@ and for development environment, run:
 
 `sudo docker-compose --env-file .env.dev -f docker-compose.dev.yml logs -f`
 
-## Setting up AWS
+## Setting up AWS and webhosting
+
+### Webhosting
+
+In your web host, you should redirect the subdomain `api` to the static IP of the ec2 machine. Usually this is done with type `A`.
+
+### ec2 server
+
+On ec2 one needs to setup a machine which hosts the API. You will need also:
+
+- a static IP
+- security groups opening the ports 443, 80 and 8000
 
 ### S3
 
@@ -83,16 +104,17 @@ The Batch job is set up to run the container in the `whisper-container` folder, 
 
 1. Compute environment
 2. Job queue
-3. Job definition
-4. Job
+3. Job
 
 Number 1 and 2 are done in the AWS Batch console, number 3 is done in a Notebook, and number 4 is done programmatically.
 
 ## Whisper container
 
-The Whisper container is in the folder `whisper-container`. It is a docker container that is used in the Batch job to transcribe the files.
+The Whisper container is in the folder `whisper-container`. It is a docker container that is used in the Batch job to transcribe the files. It contains the model that does the transcription.
 
 There is a readme.MD in the folder that explains its mechanics.
+
+The container should be serve in dockerhub.
 
 ## Configuration (also to use in a new project)
 
@@ -115,10 +137,43 @@ The environment variables are set in the file `.env.prod` or in the `.env.dev` f
 - `AWS_REGION`: AWS region.
 - `JOB_QUEUE`: AWS Batch job queue name.
 - `JOB_DEFINITION`: AWS Batch job definition name.
+- `FROM_EMAIL`: The email where the finish transcription email will be sent from.
+- `EMAIL_PASSWORD`: the email with the password.
 
-### Server
+As an example, see bellow how the file will look like:
 
-Note that the server would require at least the port 443 to be open (and possibly the port 8000 and 80 too).
+```
+# User files and database paths
+USERS_FILES_PATH="/home/platic-users-files"
+DATABASE_PATH="/home/platic-database"
+DATABASE_FILE_NAME="platic.db"
+
+# API timeout, used for FastAPI and GUnicorn
+API_TIMEOUT=360
+
+# Prices and minutes
+PRICE_PER_MINUTE=0.10
+PRICE_PER_MINUTE_HIGH_VOLUME=0.08
+VOLUME_THRESHOLD=1000
+NEW_USER_FREE_MINUTES=20
+MINIMUM_PAYMENT=1.00
+
+# Stripe keys
+STRIPE_API_KEY="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+STRIPE_WEBHOOK_SECRET="xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# AWS credentials and info
+AWS_CREDENTIALS_ADDRESS="http://......."
+S3_BUCKET="platic-files"
+AWS_REGION="eu-west-1"
+JOB_QUEUE="platic-job-queue"
+JOB_DEFINITION="platic-job-definition"
+
+# Email credentials
+FROM_EMAIL="info@platic.io"
+EMAIL_PASSWORD=""xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+```
 
 ### Database and users info
 
@@ -225,7 +280,3 @@ It receives the user id and returns the files that are ready to be transcribed o
 `/webhook`
 
 It receives the webhook from Stripe that confirms that some files have been pais and updates the status of the files in the database to 'paid'.
-
-## Stripe
-
-Stripe is used to do the payment.

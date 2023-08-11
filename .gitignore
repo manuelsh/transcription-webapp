@@ -132,8 +132,13 @@ dmypy.json
 .env.dev
 .env.prod
 
-# letsencrypt that is created
+# letsencrypt created files
 init-letsencrypt.sh
 data/certbot/
+
+
 notebooks/
 deprecated/
+
+# Visual studio files
+.vscode/
