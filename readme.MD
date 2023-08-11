@@ -1,6 +1,6 @@
 # A webapp for transcribing audio files
 
-In this repo you will find the elements to build a webapp for performing transcription of files. The webapp includes authetication of users, payment, handling of files and automatic transcription using state of the art models.
+In this repo you will find the elements to build a webapp for performing transcription of audio files. The webapp includes authetication of users, payment, handling of files and automatic transcription using state of the art models.
 
 It is composed by the different elements needed in the frontend (for files uploading, payment, reviewing and downloading transcriptions, authenticate users, and more) and the elements of the backend; mostly an API and a few docker containers.
 
@@ -16,6 +16,8 @@ The stack used is the following:
 8. AWS S3: mostly Batch Jobs and ec2
 9. ML model uses Whisper from OpenAI, downloaded from HuggingFace
 10. User authentication: Firebase
+
+Note that all these elements require also an html website being built, where the `website_elements` will be placed.
 
 ## Overall mechanics and elements in this repo
 
