@@ -17,7 +17,7 @@ The stack used is the following:
 9. ML model uses Whisper from OpenAI, downloaded from HuggingFace
 10. User authentication: Firebase
 
-Note that all these elements require also an html website being built, where the `website_elements` will be placed.
+Note that all these elements require also an html website, where the `website_elements` will be placed. This is not included in the repo. So one would need to build: the landing page (main) and the private area, which tipically will have: a list of files transcribed/being transcribed, a place to upload a new file (or many files) and a place to review and download the transcription.
 
 ## Overall mechanics and elements in this repo
 
