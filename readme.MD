@@ -280,3 +280,8 @@ It receives the user id and returns the files that are ready to be transcribed o
 `/webhook`
 
 It receives the webhook from Stripe that confirms that some files have been pais and updates the status of the files in the database to 'paid'.
+
+## Next steps
+
+- Testing. Not included yet.
+- Progress bar for transcription
