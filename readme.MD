@@ -1,5 +1,7 @@
 # A webapp for transcribing audio files
 
+<img src="media/platic_main.jpg" width="300" height="300" alt="landing page">
+
 In this repo you will find the elements to build a webapp for performing transcription of audio files. The webapp includes authetication of users, payment, handling of files and automatic transcription using state of the art models.
 
 It is composed by the different elements needed in the frontend (for files uploading, payment, reviewing and downloading transcriptions, authenticate users, and more) and the elements of the backend; mostly an API and a few docker containers.
