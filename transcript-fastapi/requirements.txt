@@ -1,10 +1,10 @@
 # For the server
-gunicorn==20.1.0
+gunicorn==22.0.0
 
 # For the fastapi
 fastapi==0.89.1
 uvicorn==0.20.0
-python-multipart==0.0.5
+python-multipart==0.0.31
 pydub==0.25.1
 
 # AWS services
@@ -12,7 +12,7 @@ boto3==1.26.84
 
 # Payment
 stripe==5.0.0
-pydantic==1.10.4
+pydantic==1.10.13
 
 # Concert documents
 python-docx==0.8.11
